@@ -1,0 +1,12 @@
+{
+  "name": "conveyor-engine-packages",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Narrow Conveyor Engine world / replication / client / three / transport packages",
+  "type": "module",
+  "scripts": {
+    "build": "npm run build --prefix conveyor-engine-core && npm run build --prefix conveyor-engine-assets && npm run build --prefix conveyor-engine-world && npm run build --prefix conveyor-engine-replication && npm run build --prefix conveyor-engine-client && npm run build --prefix conveyor-engine-three && npm run build --prefix conveyor-engine-transport-ws && npm run build --prefix conveyor-engine-example",
+    "test": "npm test --prefix conveyor-engine-core && npm test --prefix conveyor-engine-assets && npm test --prefix conveyor-engine-world && npm test --prefix conveyor-engine-replication && npm test --prefix conveyor-engine-client && npm test --prefix conveyor-engine-three && npm test --prefix conveyor-engine-transport-ws && npm test --prefix conveyor-engine-example"
+  },
+  "license": "ISC"
+}

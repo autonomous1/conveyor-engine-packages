@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Conveyor Engine A5 viewer</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #0b0d12; color: #d7dde8; font: 13px/1.4 ui-sans-serif, system-ui; }
+      canvas { display: block; width: 100%; height: 100%; }
+      #bar {
+        position: fixed; top: 0; left: 0; right: 0; z-index: 2;
+        display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+        padding: 8px 12px; background: #12151ccc; backdrop-filter: blur(8px);
+      }
+      #stats {
+        position: fixed; left: 12px; bottom: 12px; z-index: 2;
+        background: #12151ccc; padding: 8px 10px; border-radius: 6px;
+        white-space: pre; font-family: ui-monospace, monospace; font-size: 11px;
+      }
+      select, button, input { background: #1c2230; color: inherit; border: 1px solid #2c3548; border-radius: 4px; padding: 4px 8px; }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/",
+          "conveyor-engine-three": "/pkg/three/index.js",
+          "conveyor-engine-client": "/pkg/client/index.js",
+          "conveyor-engine-core": "/pkg/core/index.js",
+          "conveyor-engine-world": "/pkg/world/world.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="bar">
+      <strong>A5 viewer</strong>
+      <label>profile
+        <select id="profile">
+          <option value="desktop-balanced">desktop-balanced</option>
+          <option value="workstation-high">workstation-high</option>
+          <option value="diagnostic">diagnostic</option>
+          <option value="minimal">minimal</option>
+        </select>
+      </label>
+      <input id="file" type="file" accept=".glb,.gltf,model/gltf-binary" />
+      <button id="demo" type="button">demo box</button>
+      <button id="arena" type="button">arena</button>
+      <button id="wall" type="button">wall</button>
+      <button id="slide" type="button">slide</button>
+      <button id="bounds" type="button">bounds</button>
+      <button id="wander" type="button">wander (sandbox)</button>
+      <button id="playback" type="button">playback</button>
+      <button id="live" type="button">live ws</button>
+      <button id="despawnB" type="button">despawn B</button>
+      <button id="spawnB" type="button">spawn B</button>
+      <label><input id="debug" type="checkbox" checked /> AABB debug</label>
+      <label><input id="skinned" type="checkbox" /> skinned pawns</label>
+      <span id="status">load a .glb, demo box, or arena</span>
+    </div>
+    <div id="stats"></div>
+    <script type="module" src="./viewer.mjs"></script>
+    <script>
+      window.addEventListener("error", (e) => {
+        const el = document.getElementById("status");
+        if (el) el.textContent = "error: " + (e.message || e.error);
+      });
+      window.addEventListener("unhandledrejection", (e) => {
+        const el = document.getElementById("status");
+        if (el) el.textContent = "error: " + (e.reason?.message || e.reason);
+      });
+    </script>
+  </body>
+</html>

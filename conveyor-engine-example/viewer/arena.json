@@ -1,0 +1,17 @@
+{
+  "bundleId": "example.arena.a2",
+  "bounds": { "minX": -24, "maxX": 24, "minY": -2, "maxY": 8, "minZ": -24, "maxZ": 24 },
+  "spawnPoints": [
+    { "id": "spawn-a", "x": -10, "y": 0, "z": 0 },
+    { "id": "spawn-b", "x": 10, "y": 0, "z": 0 }
+  ],
+  "aabbs": [
+    { "id": 1, "minX": -2, "maxX": 2, "minZ": -2, "maxZ": 2 },
+    { "id": 2, "minX": -16, "maxX": -12, "minZ": -8, "maxZ": -4 },
+    { "id": 3, "minX": 12, "maxX": 16, "minZ": 4, "maxZ": 8 },
+    { "id": 4, "minX": -8, "maxX": 8, "minZ": 18, "maxZ": 22 },
+    { "id": 5, "minX": -8, "maxX": 8, "minZ": -22, "maxZ": -18 }
+  ],
+  "pawnRadius": 0.5,
+  "ticks": 40
+}

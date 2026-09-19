@@ -1,0 +1,48 @@
+{
+  "name": "conveyor-engine-example",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Headless reference application for the Conveyor Engine vertical slice",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npm run clean && tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "start": "node dist/run.js",
+    "start:arena": "node dist/run.js arena",
+    "start:arena-wall": "node dist/run.js arena 40",
+    "start:arena-miss": "node dist/run.js arena-miss",
+    "run:lossless": "node dist/run.js lossless",
+    "run:lossy": "node dist/run.js lossy",
+    "run:partition": "node dist/run.js partition",
+    "bench": "node dist/bench-cli.js",
+    "viewer": "node viewer/serve.mjs",
+    "record:arena": "node dist/arena-scenario.js",
+    "live:arena": "node dist/arena-scenario.js live"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "conveyor-engine-assets": "file:../conveyor-engine-assets",
+    "conveyor-engine-client": "file:../conveyor-engine-client",
+    "conveyor-engine-core": "file:../conveyor-engine-core",
+    "conveyor-engine-replication": "file:../conveyor-engine-replication",
+    "conveyor-engine-three": "file:../conveyor-engine-three",
+    "conveyor-engine-transport-ws": "file:../conveyor-engine-transport-ws",
+    "conveyor-engine-world": "file:../conveyor-engine-world",
+    "conveyor-graph": "file:../../conveyor-graph",
+    "conveyor-graph-simulator": "file:../../conveyor-graph-simulator"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.8.2"
+  }
+}

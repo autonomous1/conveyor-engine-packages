@@ -1,0 +1,37 @@
+{
+  "name": "conveyor-engine-assets",
+  "version": "0.0.1",
+  "description": "Deterministic, provenance-aware asset identity, manifest, and memory loader for Conveyor Engine",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js"
+    },
+    "./http": {
+      "types": "./dist/http.d.ts",
+      "import": "./dist/http.js"
+    }
+  },
+  "files": ["dist", "src"],
+  "license": "ISC",
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npm run clean && tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --experimental-strip-types --import ../test/register.mjs --test test/*.test.ts"
+  },
+  "dependencies": {
+    "conveyor-engine-core": "file:../conveyor-engine-core"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.8.2"
+  }
+}
