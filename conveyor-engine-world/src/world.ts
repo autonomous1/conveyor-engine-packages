@@ -268,16 +268,27 @@ export class AuthoritativeWorld {
   /** Deterministic circle-circle separation for live pawns. Static AABBs stay authoritative for world geometry. */
   private resolveActors(): void {
     const ids = this.store.idsSorted();
+    let maxR = 0;
+    for (const id of ids) {
+      const v = this.store.view(id);
+      if (v) {
+        this.spatial.update(id, v.position.x, v.position.z, v.radius);
+        if (v.radius > maxR) maxR = v.radius;
+      }
+    }
     for (let i = 0; i < ids.length; i++) {
       const aId = ids[i]!;
       const a = this.store.view(aId);
       if (!a || a.radius <= 0) continue;
-      for (let j = i + 1; j < ids.length; j++) {
-        const bId = ids[j]!;
+      const neighbors = this.spatial.queryRadius(a.position.x, a.position.z, a.radius + maxR);
+      for (const bId of neighbors) {
+        if (bId <= aId) continue;
+        const aNow = this.store.view(aId);
+        if (!aNow || aNow.radius <= 0) break;
         const b = this.store.view(bId);
         if (!b || b.radius <= 0) continue;
-        const dx = b.position.x - a.position.x;
-        const dz = b.position.z - a.position.z;
+        const dx = b.position.x - aNow.position.x;
+        const dz = b.position.z - aNow.position.z;
         const dist = Math.hypot(dx, dz);
         const min = a.radius + b.radius;
         if (dist >= min || dist === 0) continue;
@@ -286,9 +297,9 @@ export class AuthoritativeWorld {
         const push = (min - dist) / 2;
         this.store.setTransform(
           aId,
-          { x: a.position.x - nx * push, y: a.position.y, z: a.position.z - nz * push },
-          a.rotation,
-          a.scale,
+          { x: aNow.position.x - nx * push, y: aNow.position.y, z: aNow.position.z - nz * push },
+          aNow.rotation,
+          aNow.scale,
         );
         this.store.setTransform(
           bId,

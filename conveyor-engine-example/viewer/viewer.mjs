@@ -205,6 +205,16 @@ function applyProfile(id) {
   return p;
 }
 
+function faceMesh(mesh, dx, dz) {
+  const speed = Math.hypot(dx, dz);
+  if (speed < 0.04) return;
+  const target = Math.atan2(dx, dz);
+  let d = target - mesh.rotation.y;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  mesh.rotation.y += d * 0.65;
+}
+
 function clearContent() {
   for (const m of mixers) m.stopAllAction();
   mixers.length = 0;
@@ -762,24 +772,23 @@ async function loadLive() {
       presentation = pack.presentation;
     } catch {}
   }
-  const client = new EngineClient(1, { delayMs: 0, extraMs: 0 });
+  const client = new EngineClient(1, { delayMs: 80, extraMs: 0, predictOwned: false });
   const pawns = [];
+  if (globalThis.__ceLiveWs) {
+    try { globalThis.__ceLiveWs.close(); } catch {}
+  }
   const ws = new WebSocket("ws://127.0.0.1:4174");
+  globalThis.__ceLiveWs = ws;
   ws.addEventListener("open", () => {
-    fetch("./replay/live-meta.json")
-      .then((r) => (r.ok ? r.json() : {}))
-      .catch(() => ({}))
-      .then((meta) => {
-        ws.send(JSON.stringify({
-          v: 1,
-          type: "hello",
-          protocol: 1,
-          world: "example-v1",
-          bundleId: meta.bundleId ?? spec.bundleId,
-          authoritativeHash: meta.authoritativeHash,
-        }));
-        setStatus(`live hello ${meta.bundleId ?? spec.bundleId} · waiting snapshots`);
-      });
+    ws.send(JSON.stringify({
+      v: 1,
+      type: "hello",
+      protocol: 1,
+      world: "example-v1",
+      token: globalThis.__ceTok || undefined,
+      bundleId: spec.bundleId,
+    }));
+    setStatus("live hello · waiting welcome");
   });
   ws.addEventListener("error", () => setStatus("live ws failed — start npm run live:arena"));
   ws.addEventListener("message", (ev) => {
@@ -787,7 +796,12 @@ async function loadLive() {
     const text = typeof ev.data === "string" ? ev.data : new TextDecoder().decode(ev.data);
     const msg = revive(JSON.parse(text));
     console.error("live msg", msg.type, msg.envelope?.kind, msg.envelope?.spawns?.length, msg.envelope?.updates?.length);
-    if (msg.type === "welcome") setStatus(`live welcome client ${msg.clientId}`);
+    if (msg.type === "welcome") {
+      if (msg.reconnectToken) globalThis.__ceTok = msg.reconnectToken;
+      const owned = Number(msg.ownedEntityId);
+      if (Number.isFinite(owned)) client.connect(owned, Number(msg.clientId) || 1);
+      setStatus(`live welcome client ${msg.clientId} owned ${msg.ownedEntityId ?? "?"} bundle ${msg.bundleId ?? spec.bundleId}`);
+    }
     if (msg.type === "reject" || msg.type === "error") {
       setStatus(`live ${msg.type}: ${msg.reason ?? msg.code ?? "?"}`);
       return;
@@ -797,7 +811,9 @@ async function loadLive() {
     const pre = `live snap ${env.seq} tick ${env.tick} ${env.kind} s${(env.spawns ?? []).length} u${(env.updates ?? []).length}`;
     setStatus(pre);
     const births = [...(env.spawns ?? []), ...(env.updates ?? [])];
-    if (!client.connected && births[0]) client.connect(births[0].entity ?? births[0].view?.id, 1);
+    if (!client.connected && births[0]) {
+      client.connect(Number(births[0].entity ?? births[0].view?.id), 1);
+    }
     for (const s of births) {
       const id = Number(s.entity ?? s.view?.id);
       if (!Number.isFinite(id) || pawns.some((p) => p.entity === id)) continue;
@@ -836,8 +852,10 @@ async function loadLive() {
         updates: env.updates ?? [],
         despawns: env.despawns ?? [],
       });
+      ws.send(JSON.stringify({ v: 1, type: "ack", snapshotSeq: Number(env.seq) }));
     } catch (err) {
       setStatus(`live apply failed: ${err.message ?? err} · meshes ${pawns.length}`);
+      ws.send(JSON.stringify({ v: 1, type: "resync" }));
     }
     const render = client.renderSnapshot();
     const byId = new Map(render.entities.map((e) => [Number(e.id), e]));
@@ -848,26 +866,6 @@ async function loadLive() {
       mesh.position.set(e.position.x, 0.75, e.position.z);
       content.add(mesh);
       pawns.push({ mesh, entity: rid, px: e.position.x, pz: e.position.z, skin: null, moveX: 0, moveZ: 0 });
-    }
-    const rawPos = new Map();
-    for (const rec of births) {
-      const id = Number(rec.entity ?? rec.view?.id);
-      const pos = rec.view?.position;
-      if (Number.isFinite(id) && pos) rawPos.set(id, pos);
-    }
-    for (const p of pawns) {
-      const view = byId.get(p.entity);
-      const pos = rawPos.get(p.entity) ?? view?.position;
-      if (!pos) continue;
-      const nx = Number(pos.x) || 0;
-      const nz = Number(pos.z) || 0;
-      const dx = nx - p.px;
-      const dz = nz - p.pz;
-      p.px = nx;
-      p.pz = nz;
-      p.mesh.position.set(p.px, p.skin ? 0 : 0.75, p.pz);
-      if (Math.hypot(dx, dz) > 0.02) p.mesh.rotation.y = Math.atan2(dx, dz);
-      if (view.animation && director) director.apply(p.entity, view.animation);
     }
     arenaSim = { spec, pawns, tick: Number(env.tick ?? 0), remaining: 1e9, mode: "live", director, presentation, client };
     setStatus(`${pre} · render ${render.entities.length} meshes ${pawns.length} content ${content.children.length}`);
@@ -1125,6 +1123,30 @@ function tick(now) {
     }
   }
   if (arenaSim?.director) arenaSim.director.tick(dt);
+  if ((arenaSim?.mode === "live" || arenaSim?.mode === "playback") && arenaSim.client) {
+    const render = arenaSim.client.renderSnapshot();
+    const byId = new Map(render.entities.map((e) => [Number(e.id), e]));
+    for (const p of arenaSim.pawns) {
+      const view = byId.get(p.entity);
+      if (!view) continue;
+      const dx = view.position.x - p.px;
+      const dz = view.position.z - p.pz;
+      p.px = view.position.x;
+      p.pz = view.position.z;
+      p.mesh.position.set(p.px, p.skin ? 0 : 0.75, p.pz);
+      faceMesh(p.mesh, dx, dz);
+      if (arenaSim.director) {
+        const tickSpeed = Number(view.animation?.speed);
+        const speed = Number.isFinite(tickSpeed) && tickSpeed > 0 ? tickSpeed : Math.hypot(dx, dz) / Math.max(dt, 1 / 60);
+        arenaSim.director.apply(p.entity, {
+          locomotion: locomotionFromSpeed(speed, 0.12, 0.7),
+          speed,
+          action: "none",
+          actionEpoch: 0,
+        });
+      }
+    }
+  }
   if (!arenaMode && !arenaSim) {
     content.children[0]?.rotateY?.(dt * 0.15);
   }

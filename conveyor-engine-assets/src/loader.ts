@@ -116,6 +116,7 @@ export class AssetRuntime {
     admissionRejectedCount: 0,
   };
   private readonly listeners = new Set<(event: AssetRuntimeEvent) => void>();
+  /** Client-lifetime handles. Call `disposeAll()` on shutdown; unreleased handles keep payloads alive. */
   private readonly liveHandles = new Set<AssetHandle>();
   private readonly pinnedIds = new Set<AssetId>();
 
@@ -216,6 +217,11 @@ export class AssetRuntime {
 
   liveHandleCount(): number {
     return this.liveHandles.size;
+  }
+
+  /** Release every live handle. Use on world unload / process shutdown. */
+  disposeAll(): void {
+    this.releaseWhere(() => true);
   }
 
   private releaseWhere(pred: (handle: AssetHandle) => boolean): void {

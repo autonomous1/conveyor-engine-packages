@@ -89,6 +89,25 @@ export class RendererCache {
     return this.entries.get(key);
   }
 
+  diagnostic(): CacheEntry {
+    const key = rendererCacheKey("diagnostic", "none");
+    let entry = this.entries.get(key);
+    if (!entry) {
+      entry = {
+        key,
+        assetId: "diagnostic",
+        contentHash: "none",
+        state: "ready",
+        leases: 0,
+        template: { templateId: "diagnostic", kind: "diagnostic", assetId: "diagnostic", contentHash: "none" },
+        fallback: true,
+      };
+      this.entries.set(key, entry);
+      this.metrics.entries = this.entries.size;
+    }
+    return entry;
+  }
+
   keys(): CacheKey[] {
     return [...this.entries.keys()].sort();
   }
@@ -161,10 +180,14 @@ export class RendererCache {
       this.metrics.successes++;
       return entry;
     } catch (err) {
-      entry.state = "failed";
-      entry.error = err instanceof Error ? err.message : String(err);
+      this.entries.delete(key);
+      this.metrics.entries = this.entries.size;
       this.metrics.failures++;
-      return entry;
+      return {
+        ...entry,
+        state: "failed",
+        error: err instanceof Error ? err.message : String(err),
+      };
     }
   }
 }

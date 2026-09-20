@@ -216,6 +216,9 @@ export class EngineWsServer {
       clientId = this.nextClientId++;
     }
     const token = hello.token && reconnect ? hello.token : `tok-${clientId}-${this.nextSession}`;
+    for (const [existing, id] of this.tokens) {
+      if (id === clientId && existing !== token) this.tokens.delete(existing);
+    }
     this.tokens.set(token, clientId);
     const sessionId = this.nextSession++;
     const prev = this.sessions.get(clientId);
@@ -244,6 +247,7 @@ export class EngineWsServer {
         protocol: this.compatibility.protocol,
         world: this.compatibility.world,
         reconnectToken: token,
+        ownedEntityId: owned,
         bundleId: this.bundle.bundleId,
         authoritativeHash: this.bundle.authoritativeHash,
       }),

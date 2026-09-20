@@ -13,6 +13,7 @@ export type MockMixer = {
   actionTriggers: number;
   staleIgnored: number;
   stopped: boolean;
+  actionHold: number;
 };
 
 export type AnimationBinding = {
@@ -76,6 +77,7 @@ export class AnimationDirector {
       actionTriggers: 0,
       staleIgnored: 0,
       stopped: false,
+      actionHold: 0,
     };
     const binding: AnimationBinding = {
       entity,
@@ -94,7 +96,8 @@ export class AnimationDirector {
     const b = this.bindings.get(entity);
     if (!b || b.mixer.stopped) return undefined;
     const next = directive.locomotion;
-    if (next !== b.mixer.current && directive.action === "none") {
+    if (b.mixer.actionHold > 0) b.mixer.actionHold -= 1;
+    if (next !== b.mixer.current && directive.action === "none" && b.mixer.actionHold <= 0) {
       b.mixer.current = next;
       b.mixer.transitions++;
       this.metrics.transitions++;
@@ -106,6 +109,7 @@ export class AnimationDirector {
       b.mixer.actionTriggers++;
       this.metrics.actionTriggers++;
       b.mixer.current = "action-primary";
+      b.mixer.actionHold = 12;
       this.driver?.play(b, "action-primary", this.profile["action-primary"]);
     } else if (directive.actionEpoch < b.mixer.actionEpoch) {
       b.mixer.staleIgnored++;

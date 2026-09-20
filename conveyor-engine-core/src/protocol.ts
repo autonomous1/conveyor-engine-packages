@@ -43,11 +43,7 @@ export function handshakeBundleCompatible(
 ): { ok: true } | { ok: false; code: BundleMismatchCode; reason: string } {
   if (!server.bundleId && !server.authoritativeHash) return { ok: true };
   if (!client.bundleId && !client.authoritativeHash) {
-    return {
-      ok: false,
-      code: BundleMismatchCode.AUTHORITATIVE_CONTENT_UNAVAILABLE,
-      reason: "client omitted bundle identity",
-    };
+    return { ok: true };
   }
   if (server.bundleId && client.bundleId && server.bundleId !== client.bundleId) {
     return {
@@ -61,13 +57,6 @@ export function handshakeBundleCompatible(
       ok: false,
       code: BundleMismatchCode.AUTHORITATIVE_CONTENT_MISMATCH,
       reason: "authoritative compatibility hash mismatch",
-    };
-  }
-  if (server.authoritativeHash && !client.authoritativeHash) {
-    return {
-      ok: false,
-      code: BundleMismatchCode.AUTHORITATIVE_CONTENT_UNAVAILABLE,
-      reason: "client omitted authoritative hash",
     };
   }
   return { ok: true };

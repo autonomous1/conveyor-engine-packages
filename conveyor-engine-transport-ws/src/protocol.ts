@@ -22,6 +22,7 @@ export type WelcomeMsg = {
   protocol: ProtocolVersion;
   world: WorldConfigId;
   reconnectToken: string;
+  ownedEntityId?: number;
   bundleId?: string;
   authoritativeHash?: string;
 };

@@ -97,8 +97,15 @@ export function arenaFixtures(): FixtureRegistry {
     .success("memory:box", bytes("box"));
 }
 
+const arenaWorldCache = new Map<string, { definition: StaticWorldDefinition; hash: string; manifest: EngineManifest }>();
+
 export function arenaStaticWorld(): { definition: StaticWorldDefinition; hash: string; manifest: EngineManifest } {
+  const key = `${ARENA_BUNDLE_ID}@${ARENA_BUNDLE_VERSION}`;
+  const hit = arenaWorldCache.get(key);
+  if (hit) return hit;
   const manifest = arenaManifest();
   const resolved = resolveStaticWorld({ manifest, collision: ARENA_COLLISION, profile: "example-arena" });
-  return { definition: resolved.definition, hash: resolved.hash, manifest };
+  const built = { definition: resolved.definition, hash: resolved.hash, manifest };
+  arenaWorldCache.set(key, built);
+  return built;
 }

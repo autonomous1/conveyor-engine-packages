@@ -8,6 +8,7 @@ export type EngineWsClientOptions = {
   compatibility?: Compatibility;
   bundleId?: string;
   authoritativeHash?: string;
+  expectedBundle?: { bundleId?: string; authoritativeHash?: string };
   token?: string;
   onWelcome?: (msg: WelcomeMsg) => void;
   onSnapshot?: (envelope: SnapshotEnvelope) => void;
@@ -28,6 +29,7 @@ export class EngineWsClient {
   clientId?: ClientId;
   sessionId?: number;
   reconnectToken?: string;
+  ownedEntityId?: number;
   connected = false;
   readonly metrics: TransportClientMetrics = { sent: 0, received: 0, snapshots: 0, errors: 0 };
   private readonly socket: TransportSocket;
@@ -105,10 +107,24 @@ export class EngineWsClient {
       return;
     }
     if (parsed.type === "welcome") {
+      const exp = this.opts.expectedBundle;
+      if (exp?.bundleId && parsed.bundleId && exp.bundleId !== parsed.bundleId) {
+        this.metrics.errors++;
+        this.opts.onReject?.({ v: TRANSPORT_PROTOCOL, type: "reject", reason: "welcome bundle mismatch", code: "WORLD_BUNDLE_MISMATCH" });
+        this.close();
+        return;
+      }
+      if (exp?.authoritativeHash && parsed.authoritativeHash && exp.authoritativeHash !== parsed.authoritativeHash) {
+        this.metrics.errors++;
+        this.opts.onReject?.({ v: TRANSPORT_PROTOCOL, type: "reject", reason: "welcome hash mismatch", code: "AUTHORITATIVE_CONTENT_MISMATCH" });
+        this.close();
+        return;
+      }
       this.connected = true;
       this.clientId = parsed.clientId;
       this.sessionId = parsed.sessionId;
       this.reconnectToken = parsed.reconnectToken;
+      this.ownedEntityId = parsed.ownedEntityId;
       this.opts.onWelcome?.(parsed);
     } else if (parsed.type === "snapshot") {
       this.metrics.snapshots++;

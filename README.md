@@ -1,6 +1,6 @@
 # Conveyor Engine Packages
 
-Conveyor Engine is a game engine composed from a small family of packages for networked worlds whose ticks, delivery, and presentation are separate. A Node host commits an authoritative packed world; a replicator and virtual network emit per-client snapshots; a browser client predicts and interpolates; Three.js only projects what arrived. Assets, readiness, and faults are observable. Collision, pose, and bones stay in compact stores—not graph messages.
+Conveyor Engine is a game engine kernel composed from a small family of packages for networked worlds whose ticks, delivery, and presentation are separate. A Node host commits an authoritative packed world; a replicator and virtual network emit per-client snapshots; a browser client predicts and interpolates; Three.js only projects what arrived. Assets, readiness, and faults are observable. Collision, pose, and bones stay in compact stores—not graph messages.
 
 | Package | Role |
 | --- | --- |

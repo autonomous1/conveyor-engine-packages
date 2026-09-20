@@ -95,7 +95,41 @@ test("disconnect clears session; reconnect with token forces resync", () => {
   const client2 = new EngineWsClient(pair2.client, { token });
   client2.hello();
   assert.equal(client2.clientId, 1);
+  assert.equal(client2.ownedEntityId, 10);
   assert.equal(server.replicator.get(1)?.needsFull, true);
+});
+
+test("welcome carries owned entity; ack advances replicator baseline", () => {
+  const world = new AuthoritativeWorld();
+  const pawn = world.createEntity(0n, { type: "p", shape: "capsule" }, 7);
+  world.commit(0n);
+  const pair = memoryPair();
+  const server = new EngineWsServer({ onHello: () => pawn });
+  server.attach(pair.server);
+  const kinds = [];
+  const client = new EngineWsClient(pair.client, {
+    onSnapshot: (env) => kinds.push(env.kind),
+  });
+  client.hello();
+  assert.equal(client.ownedEntityId, pawn);
+  const snap = world.commit(1n);
+  const full = server.replicator.publish(world, snap).get(1);
+  assert.equal(full.kind, "full");
+  server.sendSnapshot(1, full);
+  client.ack(full.seq);
+  assert.equal(server.replicator.get(1).lastAckSeq, full.seq);
+  world.enqueue({
+    kind: "setTransform",
+    entity: pawn,
+    position: { x: 1, y: 0, z: 0 },
+    rotation: { x: 0, y: 0, z: 0, w: 1 },
+    scale: { x: 1, y: 1, z: 1 },
+  });
+  const snap2 = world.commit(2n);
+  const delta = server.replicator.publish(world, snap2).get(1);
+  assert.equal(delta.kind, "delta");
+  server.sendSnapshot(1, delta);
+  assert.deepEqual(kinds, ["full", "delta"]);
 });
 
 test("malformed and oversized frames do not drop the process", () => {

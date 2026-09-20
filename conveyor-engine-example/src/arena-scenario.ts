@@ -1,21 +1,14 @@
 import { writeFile, mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { AuthoritativeWorld } from "conveyor-engine-world";
 import { Replicator } from "conveyor-engine-replication";
-import { NetworkScheduler, SplitMix64 } from "conveyor-graph-simulator/reference";
+import { labelMix, NetworkScheduler, SplitMix64 } from "conveyor-graph-simulator/reference";
 import { listenHttp, EngineWsServer } from "conveyor-engine-transport-ws";
 import { ARENA_COLLISION, ARENA_BUNDLE_ID, arenaStaticWorld } from "./arena-assets.js";
 
-function mulberry32(seed: number) {
-  let a = seed >>> 0;
-  return () => {
-    a += 0x6d2b79f5;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
+function unit01(rng: SplitMix64): number {
+  return Number(rng.nextU64() % 1_000_000n) / 1_000_000;
 }
 
 function jsonSafe(value: unknown): unknown {
@@ -31,7 +24,8 @@ function jsonSafe(value: unknown): unknown {
 
 export async function recordArenaWander(opts: { ticks?: number; seed?: number; outFile?: string } = {}) {
   const ticks = opts.ticks ?? 240;
-  const rng = mulberry32(opts.seed ?? 20260917);
+  const seed = opts.seed ?? 20260917;
+  const rng = new SplitMix64(labelMix(seed, "agent"));
   const arena = arenaStaticWorld();
   const world = new AuthoritativeWorld({ worldVersion: "example-v1" });
   world.actorSeparation = true;
@@ -72,7 +66,7 @@ export async function recordArenaWander(opts: { ticks?: number; seed?: number; o
   replicator.setAssetCompatibilityHash(arena.hash);
   replicator.connect(1, agents[0]!.id, 64);
   const net = new NetworkScheduler();
-  net.useRng(new SplitMix64(opts.seed ?? 20260917));
+  net.useRng(new SplitMix64(labelMix(seed, "network")));
   net.addPeer("world").addPeer("client:1");
   net.connect("world", "client:1", "snap", { latencyTicks: 2, jitterTicks: 0 });
   const outbox = new Map<string, unknown>();
@@ -120,7 +114,10 @@ export async function recordArenaWander(opts: { ticks?: number; seed?: number; o
   const drainNet = (tick: number) => {
     for (const due of net.tick(BigInt(tick))) {
       const payload = outbox.get(due.payloadHash);
-      if (payload) lines.push(JSON.stringify(jsonSafe(payload)));
+      if (payload) {
+        lines.push(JSON.stringify(jsonSafe(payload)));
+        outbox.delete(due.payloadHash);
+      }
     }
   };
 
@@ -130,17 +127,17 @@ export async function recordArenaWander(opts: { ticks?: number; seed?: number; o
   for (let t = 1; t <= ticks; t++) {
     for (const a of agents) {
       if (t >= a.nextTurn) {
-        a.heading += (rng() - 0.5) * Math.PI * 1.4;
-        const roll = rng();
+        a.heading += (unit01(rng) - 0.5) * Math.PI * 1.4;
+        const roll = unit01(rng);
         a.gait = roll < 0.2 ? "stop" : roll < 0.55 ? "walk" : "run";
-        a.nextTurn = t + 25 + Math.floor(rng() * 45);
+        a.nextTurn = t + 25 + Math.floor(unit01(rng) * 45);
       }
       const scale = a.gait === "run" ? 1 : a.gait === "walk" ? 0.45 : 0;
       const view = world.store.view(a.id);
       if (view) {
         const moved = Math.hypot(view.velocity.x, view.velocity.z);
         if (scale > 0 && moved < 0.05 && t > 2) {
-          a.heading += Math.PI * 0.6 + (rng() - 0.5);
+          a.heading += Math.PI * 0.6 + (unit01(rng) - 0.5);
           a.nextTurn = t + 12;
         }
       }
@@ -161,8 +158,11 @@ export async function recordArenaWander(opts: { ticks?: number; seed?: number; o
   const out =
     opts.outFile ??
     join(dirname(fileURLToPath(import.meta.url)), "..", "viewer", "replay", "arena-wander.jsonl");
-  drainNet(ticks + 2);
-  drainNet(ticks + 4);
+  for (let extra = 1; extra <= 64; extra++) {
+    const before = lines.length;
+    drainNet(ticks + extra);
+    if (extra > 2 && lines.length === before) break;
+  }
   await mkdir(dirname(out), { recursive: true });
   await writeFile(out, lines.join("\n") + "\n");
   return { out, ticks, hash: arena.hash, bundleId: ARENA_BUNDLE_ID, lines: lines.length };
@@ -177,7 +177,7 @@ export async function liveArena(port = 4174) {
   for (const box of ARENA_COLLISION.aabbs) {
     world.addObstacle({ id: box.id, minX: box.minX, maxX: box.maxX, minZ: box.minZ, maxZ: box.maxZ });
   }
-  const rng = mulberry32(20260917);
+  const rng = new SplitMix64(labelMix(20260917, "agent"));
   const agents = ARENA_COLLISION.spawnPoints.map((s, i) => {
     const id = world.createEntity(0n, { type: "pawn", shape: "capsule", assetKey: "fox" }, i + 1);
     world.enqueue({
@@ -205,30 +205,39 @@ export async function liveArena(port = 4174) {
   world.commit(0n);
   const server = new EngineWsServer({
     compatibility: { protocol: 1, world: "example-v1" },
-    // Handshake identity is protocol+world; bundle hash is carried on snapshots.
-    bundle: {},
-    onHello: () => agents[0]!.id,
+    bundle: { bundleId: arena.definition.bundleId, authoritativeHash: arena.hash },
+    onHello: () => {
+      const used = new Set<number>();
+      for (const cid of server.connected) {
+        const rec = server.gateway.get(cid);
+        if (rec?.connected && rec.ownedEntity !== undefined) used.add(rec.ownedEntity);
+      }
+      return (agents.find((a) => !used.has(a.id)) ?? agents[0]!).id;
+    },
   });
-  const metaPath = join(dirname(fileURLToPath(import.meta.url)), "..", "viewer", "replay", "live-meta.json");
-  await mkdir(dirname(metaPath), { recursive: true });
+  const replayDir = join(dirname(fileURLToPath(import.meta.url)), "..", "viewer", "replay");
+  const metaPath = join(replayDir, `live-meta-${port}.json`);
+  await mkdir(replayDir, { recursive: true });
   await writeFile(
     metaPath,
-    JSON.stringify({ bundleId: arena.definition.bundleId, authoritativeHash: arena.hash }),
+    JSON.stringify({ bundleId: arena.definition.bundleId, authoritativeHash: arena.hash, ws: `ws://127.0.0.1:${port}` }),
   );
   const live = await listenHttp(server, port);
   const net = new NetworkScheduler();
-  net.useRng(new SplitMix64(20260917));
+  net.useRng(new SplitMix64(labelMix(20260917, "network")));
   net.addPeer("world").addPeer("client:1");
   net.connect("world", "client:1", "snap", { latencyTicks: 2 });
   const box = new Map<string, { clientId: number; env: NonNullable<ReturnType<Replicator["publish"]> extends Map<number, infer E> ? E : never> }>();
   let t = 0;
-  setInterval(() => {
+  let open = true;
+  const timer = setInterval(() => {
+    if (!open) return;
     t += 1;
     for (const a of agents) {
       if (t >= a.nextTurn) {
-        a.heading += (rng() - 0.5) * Math.PI;
-        a.gait = rng() < 0.25 ? "stop" : rng() < 0.6 ? "walk" : "run";
-        a.nextTurn = t + 20 + Math.floor(rng() * 30);
+        a.heading += (unit01(rng) - 0.5) * Math.PI;
+        a.gait = unit01(rng) < 0.25 ? "stop" : unit01(rng) < 0.6 ? "walk" : "run";
+        a.nextTurn = t + 20 + Math.floor(unit01(rng) * 30);
       }
       const scale = a.gait === "run" ? 1 : a.gait === "walk" ? 0.45 : 0;
       world.enqueue({
@@ -242,7 +251,6 @@ export async function liveArena(port = 4174) {
     }
     const snap = world.commit(BigInt(t));
     server.setTick(BigInt(t));
-    for (const id of server.connected) server.replicator.requestResync(id);
     const envs = server.replicator.publish(world, snap);
     const ids = server.connected;
     if (t <= 5 || t % 40 === 0) {
@@ -283,14 +291,22 @@ export async function liveArena(port = 4174) {
       if (!held) continue;
       const cid = Number(String(due.to).replace("client:", "")) || held.clientId;
       server.sendSnapshot(cid, held.env);
+      box.delete(due.payloadHash);
     }
   }, 50);
-  console.log(JSON.stringify({ live: live.url, bundleId: arena.definition.bundleId, hash: arena.hash }));
+  timer.unref();
+  const close = live.close;
+  live.close = async () => {
+    open = false;
+    clearInterval(timer);
+    await close();
+  };
+  console.log(JSON.stringify({ live: live.url, bundleId: arena.definition.bundleId, hash: arena.hash, meta: metaPath }));
   return live;
 }
 
 const arg = process.argv[2];
-if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith("arena-scenario.ts") || process.argv[1]?.endsWith("arena-scenario.js")) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   if (arg === "live") await liveArena(Number(process.argv[3] ?? 4174));
   else {
     const result = await recordArenaWander({ ticks: Number(arg ?? 240) });

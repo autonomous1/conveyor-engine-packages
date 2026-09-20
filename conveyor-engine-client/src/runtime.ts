@@ -80,6 +80,7 @@ export class EngineClient {
   private predicted?: PredictedState;
   private presented?: PredictedState;
   readonly interp: InterpolationBuffer;
+  readonly predictOwned: boolean;
   readonly policy: CorrectionPolicy;
   readonly present: PresentPolicy;
   readonly move: MovementParams;
@@ -106,12 +107,15 @@ export class EngineClient {
       move?: MovementParams;
       delayMs?: number;
       extraMs?: number;
+      /** When false, owned entities use the interpolation buffer like remotes (spectator / server-driven pawns). */
+      predictOwned?: boolean;
     } = {},
   ) {
     this.clientId = clientId;
     this.policy = { ...DEFAULT_CORRECTION, ...opts.policy };
     this.present = { ...DEFAULT_PRESENT, ...opts.present };
     this.move = { ...DEFAULT_CLIENT_MOVE, ...opts.move };
+    this.predictOwned = opts.predictOwned ?? true;
     this.interp = new InterpolationBuffer(opts.delayMs ?? 100, 16, opts.extraMs ?? 80);
   }
 
@@ -135,6 +139,7 @@ export class EngineClient {
     if (clientId !== undefined) this.clientId = clientId;
     this.lastSnapSeq = 0;
     this.lastAck = 0;
+    this.nextInput = 1;
     this.history = [];
     this.predicted = undefined;
     this.presented = undefined;
@@ -162,7 +167,7 @@ export class EngineClient {
   }
 
   applySnapshot(snap: IncomingSnapshot, receivedAt = Date.now()): void {
-    if (this.lastSnapSeq !== 0 && snap.seq <= this.lastSnapSeq) {
+    if (snap.kind !== "full" && this.lastSnapSeq !== 0 && snap.seq <= this.lastSnapSeq) {
       this.metrics.staleSnapshots++;
       return;
     }
@@ -247,7 +252,7 @@ export class EngineClient {
     this.frame++;
     const entities = [];
     for (const e of [...this.auth.values()].sort((a, b) => a.id - b.id)) {
-      const isOwned = e.id === this.ownedEntity;
+      const isOwned = this.predictOwned && e.id === this.ownedEntity;
       const interp = isOwned ? undefined : this.interp.sample(e.id, now);
       if (isOwned) this.advancePresented();
       const pred = isOwned ? this.presented ?? this.predicted : undefined;

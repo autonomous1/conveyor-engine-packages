@@ -27,6 +27,7 @@ export class Replicator {
   };
 
   private readonly budget: ReplicationBudget;
+  /** Shared by every client on this Replicator (one world). Not a per-session field. */
   assetsCompatHash?: string;
   constructor(budget: ReplicationBudget = DEFAULT_BUDGET) {
     this.budget = budget;

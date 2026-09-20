@@ -54,6 +54,7 @@ export class PresentationRuntime {
   ) {}
 
   async attachWorld(req: VisualWorldRequest): Promise<PresentationStatus> {
+    this.detachWorld();
     this.status = "loading";
     this.visualAssetId = req.assetId;
     this.visualHash = req.contentHash;
@@ -108,15 +109,7 @@ export class PresentationRuntime {
       else this.cache.metrics.fallbackFailures++;
     }
     if (!entry || entry.state !== "ready") {
-      entry = {
-        key: rendererCacheKey("diagnostic", "none"),
-        assetId: "diagnostic",
-        contentHash: "none",
-        state: "ready",
-        leases: 0,
-        template: { templateId: "diagnostic", kind: "diagnostic", assetId: "diagnostic", contentHash: "none" },
-        fallback: true,
-      };
+      entry = this.cache.diagnostic();
     }
     this.cache.acquireLease(entry);
     this.cache.metrics.bindingCreates++;
