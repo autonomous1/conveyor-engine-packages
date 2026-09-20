@@ -774,11 +774,17 @@ async function loadLive() {
   }
   const client = new EngineClient(1, { delayMs: 80, extraMs: 0, predictOwned: false });
   const pawns = [];
+  let lastSeq = 0;
   if (globalThis.__ceLiveWs) {
     try { globalThis.__ceLiveWs.close(); } catch {}
   }
   const ws = new WebSocket("ws://127.0.0.1:4174");
   globalThis.__ceLiveWs = ws;
+  document.onvisibilitychange = () => {
+    if (document.visibilityState === "visible" && ws.readyState === 1) {
+      ws.send(JSON.stringify({ v: 1, type: "resync" }));
+    }
+  };
   ws.addEventListener("open", () => {
     ws.send(JSON.stringify({
       v: 1,
@@ -808,6 +814,11 @@ async function loadLive() {
     }
     if (msg.type !== "snapshot" || !msg.envelope) return;
     const env = msg.envelope;
+    const seq = Number(env.seq);
+    if (env.kind !== "full" && lastSeq > 0 && seq > lastSeq + 1) {
+      ws.send(JSON.stringify({ v: 1, type: "resync" }));
+    }
+    lastSeq = Number.isFinite(seq) ? seq : lastSeq;
     const pre = `live snap ${env.seq} tick ${env.tick} ${env.kind} s${(env.spawns ?? []).length} u${(env.updates ?? []).length}`;
     setStatus(pre);
     const births = [...(env.spawns ?? []), ...(env.updates ?? [])];
@@ -853,6 +864,9 @@ async function loadLive() {
         despawns: env.despawns ?? [],
       });
       ws.send(JSON.stringify({ v: 1, type: "ack", snapshotSeq: Number(env.seq) }));
+      if (env.kind === "delta" && client.renderSnapshot().entities.length === 0) {
+        ws.send(JSON.stringify({ v: 1, type: "resync" }));
+      }
     } catch (err) {
       setStatus(`live apply failed: ${err.message ?? err} · meshes ${pawns.length}`);
       ws.send(JSON.stringify({ v: 1, type: "resync" }));
