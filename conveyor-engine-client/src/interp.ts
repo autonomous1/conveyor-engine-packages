@@ -29,6 +29,11 @@ export class InterpolationBuffer {
     this.buffers.delete(id);
   }
 
+  clear(): void {
+    this.buffers.clear();
+    this.extrapolations = 0;
+  }
+
   depth(id: EntityId): number {
     return this.buffers.get(id)?.length ?? 0;
   }

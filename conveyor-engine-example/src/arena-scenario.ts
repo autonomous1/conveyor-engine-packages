@@ -8,7 +8,7 @@ import { listenHttp, EngineWsServer } from "conveyor-engine-transport-ws";
 import { ARENA_COLLISION, ARENA_BUNDLE_ID, arenaStaticWorld } from "./arena-assets.js";
 
 function unit01(rng: SplitMix64): number {
-  return Number(rng.nextU64() % 1_000_000n) / 1_000_000;
+  return Number(rng.nextU64() >> 11n) / 2 ** 53;
 }
 
 function jsonSafe(value: unknown): unknown {
@@ -22,10 +22,17 @@ function jsonSafe(value: unknown): unknown {
   return value;
 }
 
-export async function recordArenaWander(opts: { ticks?: number; seed?: number; outFile?: string } = {}) {
+export async function recordArenaWander(opts: {
+  ticks?: number;
+  seed?: number;
+  outFile?: string;
+  log?: (line: string) => void;
+} = {}) {
   const ticks = opts.ticks ?? 240;
   const seed = opts.seed ?? 20260917;
   const rng = new SplitMix64(labelMix(seed, "agent"));
+  const stuckRng = new SplitMix64(labelMix(seed, "stuck"));
+  const netProfile = { latencyTicks: 2, jitterTicks: 0 };
   const arena = arenaStaticWorld();
   const world = new AuthoritativeWorld({ worldVersion: "example-v1" });
   world.actorSeparation = true;
@@ -68,8 +75,9 @@ export async function recordArenaWander(opts: { ticks?: number; seed?: number; o
   const net = new NetworkScheduler();
   net.useRng(new SplitMix64(labelMix(seed, "network")));
   net.addPeer("world").addPeer("client:1");
-  net.connect("world", "client:1", "snap", { latencyTicks: 2, jitterTicks: 0 });
+  net.connect("world", "client:1", "snap", netProfile);
   const outbox = new Map<string, unknown>();
+  let droppedMissing = 0;
   const boot = world.commit(0n);
   const lines: string[] = [
     JSON.stringify({
@@ -78,7 +86,7 @@ export async function recordArenaWander(opts: { ticks?: number; seed?: number; o
       authoritativeHash: arena.hash,
       ticks,
       seed: opts.seed ?? 20260917,
-      net: { latencyTicks: 2 },
+      net: netProfile,
     }),
   ];
 
@@ -98,6 +106,7 @@ export async function recordArenaWander(opts: { ticks?: number; seed?: number; o
       updates: env.updates.map((u) => ({ entity: u.entity, view: u.view })),
       despawns: env.despawns.map((d) => ({ entity: d.entity })),
     };
+    // Link-model hash of the scheduled payload, not a wire integrity check.
     const decision = net.send({
       id: `snap-${tick}-${env.seq}`,
       from: "world",
@@ -117,12 +126,14 @@ export async function recordArenaWander(opts: { ticks?: number; seed?: number; o
       if (payload) {
         lines.push(JSON.stringify(jsonSafe(payload)));
         outbox.delete(due.payloadHash);
+      } else {
+        droppedMissing++;
       }
+      net.release(due.payloadHash);
     }
   };
 
   enqueueNet(boot, 0);
-  drainNet(0);
 
   for (let t = 1; t <= ticks; t++) {
     for (const a of agents) {
@@ -137,7 +148,7 @@ export async function recordArenaWander(opts: { ticks?: number; seed?: number; o
       if (view) {
         const moved = Math.hypot(view.velocity.x, view.velocity.z);
         if (scale > 0 && moved < 0.05 && t > 2) {
-          a.heading += Math.PI * 0.6 + (unit01(rng) - 0.5);
+          a.heading += Math.PI * 0.6 + (unit01(stuckRng) - 0.5);
           a.nextTurn = t + 12;
         }
       }
@@ -158,17 +169,15 @@ export async function recordArenaWander(opts: { ticks?: number; seed?: number; o
   const out =
     opts.outFile ??
     join(dirname(fileURLToPath(import.meta.url)), "..", "viewer", "replay", "arena-wander.jsonl");
-  for (let extra = 1; extra <= 64; extra++) {
-    const before = lines.length;
-    drainNet(ticks + extra);
-    if (extra > 2 && lines.length === before) break;
-  }
+  const horizon = ticks + (netProfile.latencyTicks ?? 0) + (netProfile.jitterTicks ?? 0) + 4;
+  for (let extra = 1; extra <= horizon - ticks; extra++) drainNet(ticks + extra);
   await mkdir(dirname(out), { recursive: true });
   await writeFile(out, lines.join("\n") + "\n");
-  return { out, ticks, hash: arena.hash, bundleId: ARENA_BUNDLE_ID, lines: lines.length };
+  return { out, ticks, hash: arena.hash, bundleId: ARENA_BUNDLE_ID, lines: lines.length, droppedMissing };
 }
 
-export async function liveArena(port = 4174) {
+export async function liveArena(port = 4174, opts: { log?: (line: string) => void } = {}) {
+  const log = opts.log ?? ((line: string) => console.error(line));
   const arena = arenaStaticWorld();
   const world = new AuthoritativeWorld({ worldVersion: "example-v1" });
   world.actorSeparation = true;
@@ -212,7 +221,9 @@ export async function liveArena(port = 4174) {
         const rec = server.gateway.get(cid);
         if (rec?.connected && rec.ownedEntity !== undefined) used.add(rec.ownedEntity);
       }
-      return (agents.find((a) => !used.has(a.id)) ?? agents[0]!).id;
+      const free = agents.find((a) => !used.has(a.id));
+      // Refuse when every pawn is already owned rather than sharing agents[0].
+      return free?.id;
     },
   });
   const replayDir = join(dirname(fileURLToPath(import.meta.url)), "..", "viewer", "replay");
@@ -254,7 +265,7 @@ export async function liveArena(port = 4174) {
     const envs = server.replicator.publish(world, snap);
     const ids = server.connected;
     if (t <= 5 || t % 40 === 0) {
-      console.error("[live]", JSON.stringify({
+      log("[live] " + JSON.stringify({
         t,
         connected: ids,
         worldEntities: snap.entities.length,
@@ -275,6 +286,7 @@ export async function liveArena(port = 4174) {
         net.addPeer(peer);
         net.connect("world", peer, "snap", { latencyTicks: 2, jitterTicks: 0 });
       }
+      // Hash is of a summary for the link model; sendSnapshot still ships `env`.
       const decision = net.send({
         id: `live-${t}-${clientId}-${env.seq}`,
         from: "world",
@@ -288,10 +300,14 @@ export async function liveArena(port = 4174) {
     }
     for (const due of net.tick(BigInt(t))) {
       const held = box.get(due.payloadHash);
-      if (!held) continue;
+      if (!held) {
+        net.release(due.payloadHash);
+        continue;
+      }
       const cid = Number(String(due.to).replace("client:", "")) || held.clientId;
       server.sendSnapshot(cid, held.env);
       box.delete(due.payloadHash);
+      net.release(due.payloadHash);
     }
   }, 50);
   timer.unref();

@@ -143,6 +143,7 @@ export class EngineClient {
     this.history = [];
     this.predicted = undefined;
     this.presented = undefined;
+    this.interp.clear();
   }
 
   collectInput(partial: Omit<InputCommand, "seq">): InputCommand {
@@ -176,6 +177,7 @@ export class EngineClient {
     this.metrics.snapshotReceive++;
     if (snap.kind === "full") {
       this.auth.clear();
+      this.interp.clear();
     }
     for (const s of snap.spawns) {
       const e = toReplicated(s.view);

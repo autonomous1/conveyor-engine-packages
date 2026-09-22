@@ -780,10 +780,11 @@ async function loadLive() {
   }
   const ws = new WebSocket("ws://127.0.0.1:4174");
   globalThis.__ceLiveWs = ws;
+  let lastSnapAt = 0;
   document.onvisibilitychange = () => {
-    if (document.visibilityState === "visible" && ws.readyState === 1) {
-      ws.send(JSON.stringify({ v: 1, type: "resync" }));
-    }
+    if (document.visibilityState !== "visible" || ws.readyState !== 1) return;
+    if (Date.now() - lastSnapAt < 2500) return;
+    ws.send(JSON.stringify({ v: 1, type: "resync" }));
   };
   ws.addEventListener("open", () => {
     ws.send(JSON.stringify({
@@ -806,6 +807,7 @@ async function loadLive() {
       if (msg.reconnectToken) globalThis.__ceTok = msg.reconnectToken;
       const owned = Number(msg.ownedEntityId);
       if (Number.isFinite(owned)) client.connect(owned, Number(msg.clientId) || 1);
+      lastSeq = 0;
       setStatus(`live welcome client ${msg.clientId} owned ${msg.ownedEntityId ?? "?"} bundle ${msg.bundleId ?? spec.bundleId}`);
     }
     if (msg.type === "reject" || msg.type === "error") {
@@ -819,6 +821,7 @@ async function loadLive() {
       ws.send(JSON.stringify({ v: 1, type: "resync" }));
     }
     lastSeq = Number.isFinite(seq) ? seq : lastSeq;
+    lastSnapAt = Date.now();
     const pre = `live snap ${env.seq} tick ${env.tick} ${env.kind} s${(env.spawns ?? []).length} u${(env.updates ?? []).length}`;
     setStatus(pre);
     const births = [...(env.spawns ?? []), ...(env.updates ?? [])];

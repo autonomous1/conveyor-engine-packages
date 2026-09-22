@@ -233,6 +233,8 @@ export class EngineWsServer {
     this.sessions.set(clientId, session);
     if (prev && prev.socket !== socket) prev.socket.close();
     setSession(session);
+    // onHello sees pre-reconnect gateway state by design: reconnects can reuse
+    // the previous ownedEntity before gateway.connect replaces the record.
     const owned = this.onHello?.(session, hello);
     this.gateway.connect(clientId, owned);
     this.replicator.connect(clientId, owned);

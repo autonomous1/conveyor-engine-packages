@@ -151,6 +151,7 @@ export class SimulatedNetPath {
     if (mirror.ignored > ignored) this.duplicateIgnored++;
     this.deliveries++;
     this.outbox.delete(payload.payloadHash);
+    ctx.network.release?.(payload.payloadHash);
     ctx.propose({
       vertexId: "step",
       path: ["world"],
