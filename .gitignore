@@ -1,6 +1,7 @@
 node_modules
 dist
 scripts
+conveyor-engine-example/viewer/replay
 *.log
 .DS_Store
 **/*.js.map
