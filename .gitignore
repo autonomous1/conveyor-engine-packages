@@ -1,6 +1,8 @@
 node_modules
 dist
 scripts
+agents
+.vscode
 conveyor-engine-example/viewer/replay
 *.log
 .DS_Store
