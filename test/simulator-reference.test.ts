@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { defineScenario, run } from "conveyor-graph-simulator/reference";
 import { SimulatedWorld } from "conveyor-engine-world";
-import { SimulatedReplication } from "conveyor-engine-replication";
+import { SimulatedReplication } from "conveyor-engine-replication/simulator";
 
 function movementScenario() {
   const host: { world?: SimulatedWorld; rep?: SimulatedReplication } = {};

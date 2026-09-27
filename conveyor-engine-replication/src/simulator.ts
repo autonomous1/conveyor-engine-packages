@@ -1,7 +1,6 @@
 /**
- * Publish-phase replication. Must not propose StateStore changes.
- * Optional NetworkScheduler send of snapshot envelopes (payload hash only
- * participates in network pending canonical; body stays in the replicator).
+ * Publish-phase replication for ReferenceRuntime.
+ * Must not propose StateStore changes. Publish is read-only.
  */
 import type { ConveyorGraph, StreamAgent } from "conveyor-graph";
 import type { RuntimeContext } from "conveyor-graph-simulator/reference";
@@ -37,3 +36,6 @@ export class SimulatedReplication {
     });
   }
 }
+
+export { SimulatedNetPath } from "./simulated-net-path.js";
+export type { NetBatch, NetDeliver } from "./simulated-net-path.js";

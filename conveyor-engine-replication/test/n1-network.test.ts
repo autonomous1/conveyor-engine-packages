@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { defineScenario, run, type LinkProfile, type NetworkScheduler } from "conveyor-graph-simulator/reference";
-import { SimulatedNetPath } from "../dist/index.js";
+import { defineScenario, NetworkScheduler, run, SplitMix64, type LinkProfile } from "conveyor-graph-simulator/reference";
+import { SimulatedNetPath } from "../dist/simulator.js";
 
 const Q = { type: "pawn" as const, shape: "capsule" as const };
 
@@ -95,4 +95,25 @@ test("N1 capacity rejects extras; world hash still formed", async () => {
   const result = await run(pack.scenario, "deterministicFast");
   assert.ok(pack.path.rejects > 0);
   assert.ok(result.hashes.at(-1));
+});
+
+test("SimulatedNetPath.send admits a snap frame through the attached scheduler", async () => {
+  const net = new NetworkScheduler();
+  net.useRng(new SplitMix64(1n));
+  const path = new SimulatedNetPath({ clients: [1] });
+  path.setupNetwork(net, {});
+  const frame = { type: "snap", kind: "full", seq: 1, spawns: [], updates: [], despawns: [] };
+  const receipt = await path.send(frame, { to: "client:1", kind: "snap" });
+  assert.equal(receipt.ok, true);
+  assert.equal(receipt.seq, 1);
+  assert.equal(path.sends, 0);
+  const pending = net.pendingCanonical();
+  assert.equal(pending.length, 1);
+  assert.equal(pending[0]!.to, "client:1");
+  assert.equal(pending[0]!.channel, "snap");
+  assert.deepEqual(net.bodies.get(pending[0]!.payloadHash), frame);
+  path.close("stop");
+  const closed = await path.send(frame, { to: "client:1", kind: "snap" });
+  assert.deepEqual(closed, { ok: false });
+  assert.equal(net.pendingCanonical().length, 1);
 });

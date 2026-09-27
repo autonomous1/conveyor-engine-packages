@@ -10,6 +10,7 @@ const aliases = {
   "conveyor-engine-assets": join(here, "../conveyor-engine-assets/src/index.ts"),
   "conveyor-engine-world": join(here, "../conveyor-engine-world/src/index.ts"),
   "conveyor-engine-replication": join(here, "../conveyor-engine-replication/src/index.ts"),
+  "conveyor-engine-replication/simulator": join(here, "../conveyor-engine-replication/src/simulator.ts"),
   "conveyor-engine-client": join(here, "../conveyor-engine-client/src/index.ts"),
   "conveyor-engine-three": join(here, "../conveyor-engine-three/src/index.ts"),
   "conveyor-engine-transport-ws": join(here, "../conveyor-engine-transport-ws/src/index.ts"),
