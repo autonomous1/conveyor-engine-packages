@@ -158,7 +158,7 @@ export async function recordArenaWander(opts: {
         seq: t,
         moveX: Math.sin(a.heading) * scale,
         moveZ: Math.cos(a.heading) * scale,
-        yaw: a.heading,
+        yaw: a.heading
       });
     }
     const snap = world.commit(BigInt(t));
@@ -257,7 +257,7 @@ export async function liveArena(port = 4174, opts: { log?: (line: string) => voi
         seq: t,
         moveX: Math.sin(a.heading) * scale,
         moveZ: Math.cos(a.heading) * scale,
-        yaw: a.heading,
+        yaw: a.heading
       });
     }
     const snap = world.commit(BigInt(t));

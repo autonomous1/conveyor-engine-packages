@@ -44,6 +44,8 @@ export class PackedWorldStore {
   private vx: Float64Array = new Float64Array(0);
   private vy: Float64Array = new Float64Array(0);
   private vz: Float64Array = new Float64Array(0);
+  private clip: Array<string> = new Array("");
+  private speed: Float64Array = new Float64Array(0);
   private radius: Float64Array = new Float64Array(0);
   private flags: Int32Array = new Int32Array(0);
   private category: Int32Array = new Int32Array(0);
@@ -129,6 +131,8 @@ export class PackedWorldStore {
     this.vx = copy(this.vx, Float64Array);
     this.vy = copy(this.vy, Float64Array);
     this.vz = copy(this.vz, Float64Array);
+    this.clip = [...this.clip];
+    this.speed = copy(this.speed, Float64Array);
     this.radius = copy(this.radius, Float64Array);
     this.flags = copy(this.flags, Int32Array);
     this.category = copy(this.category, Int32Array);
@@ -167,6 +171,8 @@ export class PackedWorldStore {
     this.vx[i] = 0;
     this.vy[i] = 0;
     this.vz[i] = 0;
+    this.clip[i] = "idle";
+    this.speed[i] = 0;
     this.radius[i] = 0.5;
     this.flags[i] = 0;
     this.category[i] = 0;
@@ -238,6 +244,14 @@ export class PackedWorldStore {
     this.tVer[i]++;
     this.rVer[i]++;
     this.generation++;
+    return true;
+  }
+
+  setClip(id: EntityId, clip: string, speed: number): boolean {
+    const i = this.slot(id);
+    if (i === undefined) return false;
+    this.clip[i] = clip;
+    this.speed[i] = speed;
     return true;
   }
 
@@ -345,7 +359,6 @@ export class PackedWorldStore {
     if (i === undefined) return undefined;
     return this.viewAt(i);
   }
-
   viewAt(i: number): ImmutableEntityView {
     const id = this.ids[i]!;
     return {
@@ -357,6 +370,8 @@ export class PackedWorldStore {
       rotation: { x: this.qx[i]!, y: this.qy[i]!, z: this.qz[i]!, w: this.qw[i]! },
       scale: { x: this.sx[i]!, y: this.sy[i]!, z: this.sz[i]! },
       velocity: { x: this.vx[i]!, y: this.vy[i]!, z: this.vz[i]! },
+      clip: this.clip[i],
+      speed: this.speed[i],
       radius: this.radius[i]!,
       transformVersion: this.tVer[i]!,
       velocityVersion: this.vVer[i]!,

@@ -140,7 +140,7 @@ export class InputGateway {
     return result;
   }
 
-  enqueueMovement(world: AuthoritativeWorld, input: { clientId: ClientId; seq: number; moveX: number; moveZ: number; yaw: number }): boolean {
+  enqueueMovement(world: AuthoritativeWorld, input: { clientId: ClientId; seq: number; moveX: number; moveZ: number; yaw: number; clip: string; }): boolean {
     const s = this.sessions.get(input.clientId);
     if (!s?.connected || !s.ownedEntity) return false;
     world.enqueue({
@@ -149,7 +149,7 @@ export class InputGateway {
       seq: input.seq,
       moveX: input.moveX,
       moveZ: input.moveZ,
-      yaw: input.yaw,
+      yaw: input.yaw
     });
     return true;
   }

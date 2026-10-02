@@ -166,10 +166,11 @@ export class AuthoritativeWorld {
       case "setReplication": return 4;
       case "setVelocity": return 5;
       case "applyInput": return 6;
-      case "clearInput": return 7;
-      case "setTransform": return 8;
-      case "event": return 9;
-      case "destroy": return 10;
+      case "setClip": return 7;
+      case "clearInput": return 8;
+      case "setTransform": return 9;
+      case "event": return 10;
+      case "destroy": return 11;
     }
   }
 
@@ -333,6 +334,9 @@ export class AuthoritativeWorld {
       case "setVelocity":
         this.store.setVelocity(cmd.entity, cmd.linear);
         break;
+      case "setClip":
+        this.store.setClip(cmd.entity, cmd.clip, cmd.speed);
+        break;
       case "setBounds":
         this.store.setBounds(cmd.entity, cmd.radius);
         break;
@@ -427,6 +431,8 @@ function plainView(e: ImmutableEntityView): ImmutableEntityView {
     rotation: { ...e.rotation },
     scale: { ...e.scale },
     velocity: { ...e.velocity },
+    clip: e.clip,
+    speed: e.speed,
     radius: e.radius,
     transformVersion: e.transformVersion,
     velocityVersion: e.velocityVersion,

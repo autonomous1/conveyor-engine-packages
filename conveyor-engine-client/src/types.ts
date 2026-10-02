@@ -20,6 +20,8 @@ export type ReplicatedEntity = {
   rotation: Quat;
   scale: Vec3;
   velocity: Vec3;
+  clip: string;
+  speed: number;
   radius: number;
   version: number;
   lifecycle: "alive" | "despawned";
@@ -54,7 +56,7 @@ export type Sample = {
 };
 
 export type AnimationDirective = {
-  locomotion: "idle" | "walk" | "run";
+  locomotion: string;
   speed: number;
   action: "none" | "action-primary";
   actionEpoch: number;
@@ -66,6 +68,8 @@ export type RenderEntity = {
   position: Vec3;
   rotation: Quat;
   scale: Vec3;
+  clip: string;
+  speed: number;
   visible: boolean;
   lifecycle: "alive" | "despawned";
   predicted: boolean;

@@ -1,4 +1,5 @@
-export type LocomotionState = "idle" | "walk" | "run";
+//export type LocomotionState = "idle" | "walk" | "run";
+export type LocomotionState = string;
 
 export function locomotionFromSpeed(speed: number, idle = 0.2, run = 4): LocomotionState {
   if (!(speed > idle)) return "idle";

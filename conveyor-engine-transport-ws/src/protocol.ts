@@ -41,6 +41,7 @@ export type InputMsg = {
   moveX: number;
   moveZ: number;
   yaw: number;
+  clip: string;
   buttons: number;
   entity?: number;
 };
@@ -88,7 +89,9 @@ export function inputFromMsg(msg: InputMsg, clientId: ClientId): ValidatedInput 
     moveX: msg.moveX,
     moveZ: msg.moveZ,
     yaw: msg.yaw,
+    clip: msg.clip,
     buttons: msg.buttons,
     entity: msg.entity,
+   
   };
 }

@@ -2,7 +2,8 @@ import type { EntityId } from "conveyor-engine-core";
 import type { AnimationDirective } from "conveyor-engine-client";
 import { rendererCacheKey, type CacheEntry, type RendererCache } from "./cache.js";
 
-export type SemanticClip = "idle" | "walk" | "run" | "action-primary";
+//export type SemanticClip = "idle" | "walk" | "run" | "action-primary";
+export type SemanticClip = string;
 
 export type MockMixer = {
   entity: EntityId;

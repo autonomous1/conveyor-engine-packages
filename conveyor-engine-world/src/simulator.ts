@@ -14,6 +14,7 @@ export type EngineAdmitPayload = {
   moveX?: number;
   moveZ?: number;
   yaw?: number;
+  clip: string;
   buttons?: number;
   entity?: number;
   create?: { render?: RenderDescriptor; owner?: OwnerId };
@@ -67,7 +68,7 @@ export class SimulatedWorld {
               seq: payload.seq ?? 0,
               moveX: payload.moveX ?? 0,
               moveZ: payload.moveZ ?? 0,
-              yaw: payload.yaw ?? 0,
+              yaw: payload.yaw ?? 0
             });
           }
         }

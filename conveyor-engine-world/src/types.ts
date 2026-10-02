@@ -30,7 +30,8 @@ export type WorldCommand =
   | { kind: "setLifecycle"; entity: EntityId; render?: RenderDescriptor }
   | { kind: "applyInput"; entity: EntityId; seq: number; moveX: number; moveZ: number; yaw: number }
   | { kind: "clearInput"; entity: EntityId }
-  | { kind: "event"; entity: EntityId; category: string; payload?: unknown };
+  | { kind: "event"; entity: EntityId; category: string; payload?: unknown }
+  | { kind: "setClip"; entity: EntityId; clip: string; speed: number; };
 
 export type StaticObstacle = {
   id: number;
@@ -111,6 +112,8 @@ export type ImmutableEntityView = {
   rotation: Quat;
   scale: Vec3;
   velocity: Vec3;
+  clip: string;
+  speed: number;
   radius: number;
   actionEpoch?: number;
   action?: string;

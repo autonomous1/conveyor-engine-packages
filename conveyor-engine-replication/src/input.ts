@@ -75,6 +75,7 @@ export function validateInput(
       moveX,
       moveZ,
       yaw,
+      clip: "",
       buttons: buttons | 0,
       entity: typeof raw.entity === "number" ? raw.entity : undefined,
     },

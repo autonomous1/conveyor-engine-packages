@@ -134,7 +134,7 @@ export class SimulatedNetPath implements NetPath<unknown> {
         const net = payload as { payloadHash: string; to: string };
         return host.#deliver({ type: "net-deliver", to: net.to, payloadHash: net.payloadHash }, ctx);
       }
-      const batch = payload as NetBatch & { inputs?: Array<{ clientId: number; seq: number; moveX: number; moveZ: number; yaw: number }> };
+      const batch = payload as NetBatch & { inputs?: Array<{ clientId: number; seq: number; moveX: number; moveZ: number; yaw: number; clip: string; }> };
       if (batch.creates) {
         for (const create of batch.creates) {
           if (!create) continue;
@@ -167,6 +167,7 @@ export class SimulatedNetPath implements NetPath<unknown> {
             moveX: input.moveX ?? 0,
             moveZ: input.moveZ ?? 0,
             yaw: input.yaw ?? 0,
+            clip: input.clip ?? ""
           });
         }
       }

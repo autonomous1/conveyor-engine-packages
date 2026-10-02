@@ -34,7 +34,9 @@ export type ViewWire = {
   rotation: { x: number; y: number; z: number; w: number };
   scale: { x: number; y: number; z: number };
   velocity: { x: number; y: number; z: number };
+  clip: string;
   radius: number;
+  speed: number;
   replicationVersion: number;
   inputSeq: number;
   render?: { type: string; shape: string; color?: number; material?: string; assetKey?: string };
@@ -50,6 +52,8 @@ function toReplicated(v: ViewWire): ReplicatedEntity {
     rotation: { ...v.rotation },
     scale: { ...v.scale },
     velocity: { ...v.velocity },
+    clip: v.clip,
+    speed: v.speed,
     radius: v.radius,
     version: v.replicationVersion,
     lifecycle: "alive",
@@ -277,8 +281,10 @@ export class EngineClient {
         lifecycle: e.lifecycle,
         predicted: Boolean(isOwned && pred),
         color: e.render?.color,
+        clip: e.clip,
+        speed: speed,
         animation: {
-          locomotion: locomotionFromSpeed(speed),
+          locomotion: e.clip,
           speed,
           action,
           actionEpoch: applyAction ? incomingEpoch : last,

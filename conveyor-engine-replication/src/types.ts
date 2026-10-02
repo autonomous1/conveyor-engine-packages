@@ -85,6 +85,7 @@ export type ValidatedInput = {
   moveX: number;
   moveZ: number;
   yaw: number;
+  clip: string;
   buttons: number;
   entity?: number;
 };
