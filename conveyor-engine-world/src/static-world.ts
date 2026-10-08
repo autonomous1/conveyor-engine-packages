@@ -12,7 +12,14 @@ export function applyStaticWorldDefinition(world: AuthoritativeWorld, def: Stati
   world.actorSeparation = true;
   world.setWorldBounds(def.bounds);
   for (const box of def.aabbs) {
-    world.addObstacle({ id: box.id, minX: box.minX, maxX: box.maxX, minZ: box.minZ, maxZ: box.maxZ });
+    world.addObstacle({
+      id: box.id,
+      minX: box.minX,
+      maxX: box.maxX,
+      minZ: box.minZ,
+      maxZ: box.maxZ,
+      ...(box.minY !== undefined && box.maxY !== undefined ? { minY: box.minY, maxY: box.maxY } : {}),
+    });
   }
   for (const spawn of def.spawnPoints) {
     world.addSpawnPoint({ id: spawn.id, x: spawn.x, y: spawn.y, z: spawn.z, yaw: spawn.yaw });

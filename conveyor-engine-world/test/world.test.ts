@@ -109,6 +109,49 @@ test("static AABB blocks movement with deterministic axis slide", () => {
   assert.equal(w2.canonicalJson(), w.canonicalJson());
 });
 
+test("a 1.8 m pawn walks under a span and stops on a ground wall", () => {
+  const w = new AuthoritativeWorld();
+  w.pawnHeight = 1.8;
+  w.addObstacle({ id: 1, minX: 2, maxX: 4, minZ: -1, maxZ: 1, minY: 3, maxY: 4 });
+  w.addObstacle({ id: 2, minX: 8, maxX: 9, minZ: -1, maxZ: 1, minY: 0, maxY: 3 });
+  const e = w.createEntity(0n, { type: "p", shape: "capsule" }, 1);
+  w.enqueue({ kind: "setTransform", entity: e, position: { x: 0, y: 0, z: 0 }, rotation: ident, scale: unit });
+  w.enqueue({ kind: "setBounds", entity: e, radius: 0.5 });
+  w.commit(0n);
+  for (let tick = 1n; tick <= 40n; tick++) {
+    w.enqueue({ kind: "applyInput", entity: e, seq: Number(tick), moveX: 1, moveZ: 0, yaw: 0 });
+    w.commit(tick);
+  }
+  const x = w.store.view(e)!.position.x;
+  assert.ok(x > 4, `passed the span, x=${x}`);
+  assert.ok(Math.abs(x - 7.5) < 1e-6, `stopped at the wall, x=${x}`);
+
+  const beam = new AuthoritativeWorld();
+  beam.pawnHeight = 1.8;
+  beam.addObstacle({ id: 1, minX: 2, maxX: 4, minZ: -1, maxZ: 1, minY: 1, maxY: 1.4 });
+  const b = beam.createEntity(0n, { type: "p", shape: "capsule" }, 1);
+  beam.enqueue({ kind: "setTransform", entity: b, position: { x: 0, y: 0, z: 0 }, rotation: ident, scale: unit });
+  beam.enqueue({ kind: "setBounds", entity: b, radius: 0.5 });
+  beam.commit(0n);
+  for (let tick = 1n; tick <= 20n; tick++) {
+    beam.enqueue({ kind: "applyInput", entity: b, seq: Number(tick), moveX: 1, moveZ: 0, yaw: 0 });
+    beam.commit(tick);
+  }
+  const bx = beam.store.view(b)!.position.x;
+  assert.ok(bx <= 1.5 + 1e-6, `beam still blocks, x=${bx}`);
+});
+
+test("an elevated box still blocks when pawn height is unset", () => {
+  const w = new AuthoritativeWorld();
+  w.addObstacle({ id: 1, minX: 2, maxX: 4, minZ: -1, maxZ: 1, minY: 3, maxY: 4 });
+  const e = w.createEntity(0n, { type: "p", shape: "sphere" }, 1);
+  w.commit(0n);
+  w.enqueue({ kind: "setTransform", entity: e, position: { x: 3, y: 0, z: 0 }, rotation: ident, scale: unit });
+  w.commit(1n);
+  const x = w.store.view(e)!.position.x;
+  assert.ok(x <= 1.5 + 1e-9, `still blocked, x=${x}`);
+});
+
 test("clearInput zeroes planar velocity", () => {
   const w = new AuthoritativeWorld();
   const e = w.createEntity(0n, { type: "p", shape: "capsule" }, 1);

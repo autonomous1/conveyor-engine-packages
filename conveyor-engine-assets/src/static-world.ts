@@ -199,7 +199,7 @@ export function validateStaticWorld(
     if (!inBounds(s.x, s.z, def.bounds)) errors.push(`spawn ${s.id} is outside world bounds`);
     const r = s.clearance ?? 0.5;
     for (const box of def.aabbs) {
-      if (pointHitsAabb(s.x, s.z, r, box)) errors.push(`spawn ${s.id} intersects aabb ${box.id}`);
+      if (pointHitsAabb(s.x, s.z, r, box, s.y)) errors.push(`spawn ${s.id} intersects aabb ${box.id}`);
     }
   }
   const seenBox = new Set<number>();
@@ -352,6 +352,13 @@ function inBounds(x: number, z: number, b: CollisionBounds): boolean {
   return x >= b.minX && x <= b.maxX && z >= b.minZ && z <= b.maxZ;
 }
 
-function pointHitsAabb(x: number, z: number, r: number, box: CollisionAabb): boolean {
+/** Arena player.height. A spawn under a span that starts at or above this is free. */
+const PAWN_HEIGHT_M = 1.8;
+
+function pointHitsAabb(x: number, z: number, r: number, box: CollisionAabb, feetY = 0): boolean {
+  if (box.minY !== undefined && box.maxY !== undefined) {
+    const head = feetY + PAWN_HEIGHT_M;
+    if (feetY >= box.maxY || head <= box.minY) return false;
+  }
   return x + r > box.minX && x - r < box.maxX && z + r > box.minZ && z - r < box.maxZ;
 }

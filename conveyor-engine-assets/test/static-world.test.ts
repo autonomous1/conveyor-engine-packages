@@ -147,6 +147,30 @@ test("invalid fixtures fail validation", () => {
   );
 });
 
+test("a spawn under a span is free and a spawn in a ground wall is not", () => {
+  const span = {
+    ...collision,
+    aabbs: [
+      ...collision.aabbs,
+      { id: 5, minX: -10.2, maxX: -9.8, minZ: -0.2, maxZ: 0.2, minY: 3, maxY: 4 },
+    ],
+  };
+  const under = resolveStaticWorld({ manifest: manifest(), collision: span, profile: "example-arena" });
+  assert.equal(validateStaticWorld(under.definition, "example-arena").ok, true);
+
+  const wall = {
+    ...collision,
+    aabbs: [
+      ...collision.aabbs,
+      { id: 5, minX: -10.2, maxX: -9.8, minZ: -0.2, maxZ: 0.2, minY: 0, maxY: 3 },
+    ],
+  };
+  assert.throws(
+    () => resolveStaticWorld({ manifest: manifest(), collision: wall, profile: "example-arena" }),
+    (err: unknown) => err instanceof StaticWorldError && /intersects aabb 5/.test(err.message),
+  );
+});
+
 test("presentation resolver fallback does not depend on authoritative hash", () => {
   const visual = manifest().assets.find((a) => a.id === "arena.visual")!;
   const ready = resolvePresentation(visual, "ready");

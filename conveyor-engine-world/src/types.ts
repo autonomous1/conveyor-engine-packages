@@ -39,6 +39,9 @@ export type StaticObstacle = {
   maxX: number;
   minZ: number;
   maxZ: number;
+  /** Set together. Absent means the box blocks at every height. */
+  minY?: number;
+  maxY?: number;
 };
 
 export type WorldBounds = {

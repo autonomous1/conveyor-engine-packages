@@ -50,6 +50,11 @@ export class AuthoritativeWorld {
   bundleId?: string;
   /** Circle-circle pawn separation. Off by default so stacked test entities stay put. */
   actorSeparation = false;
+  /**
+   * Body height above the feet. Infinity keeps an elevated box blocking, so
+   * callers that never set a height behave as they did. The arena pawn is 1.8 m.
+   */
+  pawnHeight = Number.POSITIVE_INFINITY;
   private bounds?: WorldBounds;
   private spawnPoints: WorldSpawnPoint[] = [];
   private spawnCursor = 0;
@@ -79,13 +84,18 @@ export class AuthoritativeWorld {
   }
 
   addObstacle(obstacle: StaticObstacle): void {
-    this.obstacles.push({
+    const next: StaticObstacle = {
       id: obstacle.id,
       minX: Math.min(obstacle.minX, obstacle.maxX),
       maxX: Math.max(obstacle.minX, obstacle.maxX),
       minZ: Math.min(obstacle.minZ, obstacle.maxZ),
       maxZ: Math.max(obstacle.minZ, obstacle.maxZ),
-    });
+    };
+    if (Number.isFinite(obstacle.minY) && Number.isFinite(obstacle.maxY)) {
+      next.minY = Math.min(obstacle.minY!, obstacle.maxY!);
+      next.maxY = Math.max(obstacle.minY!, obstacle.maxY!);
+    }
+    this.obstacles.push(next);
     this.obstacles.sort((a, b) => a.id - b.id);
   }
 
@@ -220,8 +230,11 @@ export class AuthoritativeWorld {
       let vx = view.velocity.x;
       let vz = view.velocity.z;
       const r = view.radius;
+      const feet = view.position.y;
+      const head = feet + this.pawnHeight;
       let moved = false;
       for (const obs of this.obstacles) {
+        if (obs.minY !== undefined && obs.maxY !== undefined && (feet >= obs.maxY || head <= obs.minY)) continue;
         const minX = obs.minX - r;
         const maxX = obs.maxX + r;
         const minZ = obs.minZ - r;
