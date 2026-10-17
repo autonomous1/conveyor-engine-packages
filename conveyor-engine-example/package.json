@@ -1,6 +1,6 @@
 {
   "name": "conveyor-engine-example",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "description": "Headless reference application for the Conveyor Engine vertical slice",
   "type": "module",
@@ -31,15 +31,14 @@
   },
   "license": "ISC",
   "dependencies": {
-    "conveyor-engine-assets": "file:../conveyor-engine-assets",
-    "conveyor-engine-client": "file:../conveyor-engine-client",
-    "conveyor-engine-core": "file:../conveyor-engine-core",
-    "conveyor-engine-replication": "file:../conveyor-engine-replication",
-    "conveyor-engine-three": "file:../conveyor-engine-three",
-    "conveyor-engine-transport-ws": "file:../conveyor-engine-transport-ws",
-    "conveyor-engine-world": "file:../conveyor-engine-world",
-    "conveyor-graph": "file:../../conveyor-graph",
-    "conveyor-graph-simulator": "file:../../conveyor-graph-simulator"
+    "conveyor-engine-assets":  "^0.1.0",
+    "conveyor-engine-client":  "^0.1.0",
+    "conveyor-engine-core":  "^0.1.0",
+    "conveyor-engine-replication":  "^0.1.0",
+    "conveyor-engine-three":  "^0.1.0",
+    "conveyor-engine-transport-ws":  "^0.1.0",
+    "conveyor-engine-world":  "^0.1.0",
+    "conveyor-graph":  "^0.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

@@ -1,6 +1,6 @@
 {
   "name": "conveyor-engine-three",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Thin Three.js projection of client render snapshots",
   "type": "module",
   "main": "./dist/index.js",
@@ -26,8 +26,8 @@
     "three": { "optional": true }
   },
   "dependencies": {
-    "conveyor-engine-client": "file:../conveyor-engine-client",
-    "conveyor-engine-core": "file:../conveyor-engine-core"
+    "conveyor-engine-client":  "^0.1.0",
+    "conveyor-engine-core":  "^0.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

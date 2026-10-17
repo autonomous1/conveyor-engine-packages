@@ -1,6 +1,6 @@
 {
   "name": "conveyor-engine-core",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Shared identifiers and contracts for Conveyor Engine packages",
   "type": "module",
   "main": "./dist/index.js",

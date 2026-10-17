@@ -1,6 +1,6 @@
 {
   "name": "conveyor-engine-transport-ws",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "WebSocket / loopback transport adapter for Conveyor Engine",
   "type": "module",
   "main": "./dist/index.js",
@@ -20,14 +20,14 @@
     "test": "node --experimental-strip-types --test test/*.test.ts"
   },
   "dependencies": {
-    "conveyor-engine-core": "file:../conveyor-engine-core",
-    "conveyor-engine-replication": "file:../conveyor-engine-replication",
+    "conveyor-engine-core":  "^0.1.0",
+    "conveyor-engine-replication":  "^0.1.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "@types/ws": "^8.5.14",
     "typescript": "^5.8.2",
-    "conveyor-engine-world": "file:../conveyor-engine-world"
+    "conveyor-engine-world":  "^0.1.0"
   }
 }

@@ -1,7 +1,7 @@
 {
   "name": "conveyor-engine-packages",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Narrow Conveyor Engine world / replication / client / three / transport packages",
   "type": "module",
   "scripts": {
