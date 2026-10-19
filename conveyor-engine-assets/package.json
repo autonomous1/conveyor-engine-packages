@@ -1,6 +1,6 @@
 {
   "name": "conveyor-engine-assets",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Deterministic, provenance-aware asset identity, manifest, and memory loader for Conveyor Engine",
   "type": "module",
   "main": "./dist/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "conveyor-engine-example",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Headless reference application for the Conveyor Engine vertical slice",
   "type": "module",

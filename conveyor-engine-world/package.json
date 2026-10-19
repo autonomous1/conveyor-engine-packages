@@ -1,6 +1,6 @@
 {
   "name": "conveyor-engine-world",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Authoritative packed world store for Conveyor Engine",
   "type": "module",
   "main": "./dist/index.js",

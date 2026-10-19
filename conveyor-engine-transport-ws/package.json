@@ -1,6 +1,6 @@
 {
   "name": "conveyor-engine-transport-ws",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "WebSocket / loopback transport adapter for Conveyor Engine",
   "type": "module",
   "main": "./dist/index.js",
