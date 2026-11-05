@@ -31,7 +31,9 @@ The package does not depend on transport, DOM, or renderer state. It builds on `
 - **Deterministic command ordering**: commands are sorted by kind priority, then enqueue order, then entity id, before they are applied.
 - **Per-component versions**: transform, velocity, bounds, ownership, replication, and lifecycle versions are bumped only when a component changes. A no-op tick leaves them alone.
 - **Shared movement**: `applyInput` runs `integratePlanarMove` from `conveyor-engine-core`, the same function the client predictor uses.
-- **Static collision**: AABB obstacles are resolved by pushing the entity out along the smallest-overlap axis. Optional world bounds clamp positions, and optional circle-circle actor separation keeps pawns apart.
+- **Static collision**: AABB obstacles (optional `minY`/`maxY`) are resolved by pushing the entity out along the smallest-overlap axis. Elevated boxes that do not overlap the pawn's vertical span (`feet` … `feet + pawnHeight`) are skipped. Optional world bounds clamp positions, and optional circle-circle actor separation keeps pawns apart.
+- **Animation clip on entities**: `setClip` stores authoritative `clip` / `speed` on the packed store; views and snapshots expose them for replication and presentation.
+- **`pawnHeight`**: body height above the feet (default `+Infinity`, so elevated boxes keep blocking unless a finite height is set — e.g. arena pawns at `1.8`).
 - **Spatial grid**: `UniformGrid` handles radius queries and returns results in sorted id order.
 - **Snapshots and canonical state**: `snapshot()` is deeply frozen. `canonicalPlain()` and `canonicalJson()` omit `undefined` fields so hashing is stable.
 - **Static worlds from assets**: `applyStaticWorldDefinition` and `loadAuthoritativeStaticWorld` set up bounds, obstacles, spawn points, and the bundle identity.
@@ -45,7 +47,7 @@ The package does not depend on transport, DOM, or renderer state. It builds on `
 | Field | Value |
 | --- | --- |
 | `name` | `conveyor-engine-world` |
-| `version` | `0.0.1` |
+| `version` | `0.1.2` |
 | `type` | `module` (ESM only) |
 | `exports["."]` | `./dist/index.js` (+ `.d.ts`) |
 | `exports["./simulator"]` | `./dist/simulator.js` (+ `.d.ts`) |
@@ -68,15 +70,14 @@ From `package.json`:
 
 | Kind | Package | Spec |
 | --- | --- | --- |
-| dependency | `conveyor-engine-core` | `file:../conveyor-engine-core` |
-| dependency | `conveyor-engine-assets` | `file:../conveyor-engine-assets` |
+| dependency | `conveyor-engine-core` | `^0.1.0` |
+| dependency | `conveyor-engine-assets` | `^0.2.0` |
 | peerDependency | `conveyor-graph` | `>=0.1.0` |
-| peerDependency | `conveyor-graph-simulator` | `>=0.0.1` |
-| devDependency | `conveyor-graph` | `file:../../conveyor-graph` |
-| devDependency | `conveyor-graph-simulator` | `file:../../conveyor-graph-simulator` |
+| devDependency | `conveyor-graph` | `^0.1.0` |
+| devDependency | `conveyor-graph-simulator` | `^0.1.0` |
 | devDependency | `typescript` / `@types/node` | `^5.8.2` / `^22.10.0` |
 
-`conveyor-graph` and `conveyor-graph-simulator` are siblings of this repository (`../../`). Build them first, as the repository README describes. `src/simulator.ts` only uses `import type` from them.
+Only `conveyor-graph` is a peer. `conveyor-graph-simulator` is a **devDependency** (used when building/testing the simulator binding). The main barrel still re-exports `./simulator.js`; prefer `conveyor-engine-world/simulator` for that binding. `src/simulator.ts` uses `import type` from the graph packages.
 
 ---
 
@@ -115,10 +116,11 @@ Nothing changes when you call `enqueue()`. Commands accumulate until `commit(tic
    | 4 | `setReplication` |
    | 5 | `setVelocity` |
    | 6 | `applyInput` |
-   | 7 | `clearInput` |
-   | 8 | `setTransform` |
-   | 9 | `event` |
-   | 10 | `destroy` |
+   | 7 | `setClip` |
+   | 8 | `clearInput` |
+   | 9 | `setTransform` |
+   | 10 | `event` |
+   | 11 | `destroy` |
 
 3. Opens the store's commit window, applies every command, resolves obstacles and bounds, runs actor separation if enabled, then closes the window.
 4. Updates the spatial grid for every live entity, updates metrics, and returns `snapshot()`.
@@ -131,7 +133,7 @@ Every entity carries `transformVersion`, `velocityVersion`, `boundsVersion`, `ow
 
 ### Collision and bounds
 
-- **Obstacles** (`StaticObstacle`, an X/Z AABB) are kept sorted by `id`. An entity overlapping an obstacle that has been expanded by its radius is pushed out along the axis with the smallest penetration, and its velocity on that axis is clamped so it can't keep moving into the box.
+- **Obstacles** (`StaticObstacle`: X/Z AABB, optional `minY`/`maxY`) are kept sorted by `id`. If both Y bounds are set and the pawn's vertical span does not overlap the box, the obstacle is skipped. Otherwise an entity overlapping an obstacle expanded by its radius is pushed out along the axis with the smallest penetration, and its velocity on that axis is clamped so it can't keep moving into the box.
 - **World bounds**, if set, clamp X/Z to `[min + r, max - r]` and zero the clamped velocity component.
 - **Actor separation** (`world.actorSeparation`, off by default) pushes overlapping circles apart symmetrically, visiting pairs in sorted id order. `applyStaticWorldDefinition` turns it on.
 
@@ -157,14 +159,14 @@ Every entity carries `transformVersion`, `velocityVersion`, `boundsVersion`, `ow
 | `IDENTITY_QUAT`, `UNIT_SCALE`, `ZERO_VEC` | const | Defaults |
 | `LifecycleState` | type | `"alive" \| "destroying" \| "destroyed"` |
 | `RenderDescriptor` | type | `{ type; shape: "box"\|"sphere"\|"capsule"\|"plane"\|"line"\|"point"; material?; color?; dynamic?; visibility?; assetKey? }` |
-| `WorldCommand` | type | Union of `create`, `destroy`, `setTransform`, `setVelocity`, `setBounds`, `setOwnership`, `setReplication`, `setLifecycle`, `applyInput`, `clearInput`, `event` |
-| `StaticObstacle` | type | `{ id, minX, maxX, minZ, maxZ }` |
+| `WorldCommand` | type | Union of `create`, `destroy`, `setTransform`, `setVelocity`, `setBounds`, `setOwnership`, `setReplication`, `setLifecycle`, `applyInput`, `setClip`, `clearInput`, `event` |
+| `StaticObstacle` | type | `{ id, minX, maxX, minZ, maxZ, minY?, maxY? }` — Y bounds optional; absent means the box blocks at every height |
 | `WorldBounds` | type | `{ minX, maxX, minY, maxY, minZ, maxZ }` |
 | `WorldSpawnPoint` | type | `{ id: string, x, y, z, yaw }` |
 | `MovementConfig` / `DEFAULT_MOVEMENT` | type / const | `{ maxSpeed: 8, accel: 40, damping: 8, dt: 1/20, gravity: 0 }` |
 | `WorldMetrics` | type | Counters: entity, create, destroy, command, query, spatial-update, occupancy, commit duration |
 | `EntityRecord` | type | Metadata-only view of an entity |
-| `ImmutableEntityView` | type | Full projected entity, with optional `actionEpoch` / `action` |
+| `ImmutableEntityView` | type | Full projected entity including `clip` / `speed`, with optional `actionEpoch` / `action` |
 | `WorldSnapshot` | type | `{ tick, worldVersion, entities, created, destroyed, bundleId?, authoritativeHash? }` |
 | `CanonicalWorldState` | type | Snapshot without `created`/`destroyed` |
 | `QueryFilter` | type | `{ owner?, lifecycle?, category?, sinceVersion?, required? }` |
@@ -183,7 +185,7 @@ new AuthoritativeWorld(opts?: {
 
 **Read-only members:** `store: PackedWorldStore`, `spatial: UniformGrid`, `worldVersion`, `movement`, `metrics`, `currentTick` (getter).
 
-**Mutable fields:** `assetsCompatHash?`, `bundleId?`, `actorSeparation` (default `false`).
+**Mutable fields:** `assetsCompatHash?`, `bundleId?`, `actorSeparation` (default `false`), `pawnHeight` (default `Number.POSITIVE_INFINITY`).
 
 | Method | Description |
 | --- | --- |
@@ -221,8 +223,11 @@ Every mutator below calls `assertCommit()` and returns `false` if the id is not 
 - `setReplication(id, flags, category)`
 - `setLifecycle(id, render?)`
 - `setInputSeq(id, seq)`
+- `setClip(id, clip, speed)`
 - `integrate(id, dt)` (position += velocity × dt)
 - `applyMove(id, moveX, moveZ, yaw, cfg)` (uses `integratePlanarMove`, yaw-only rotation)
+
+New entities start with `clip = "idle"` and `speed = 0`.
 
 Read methods:
 
@@ -246,7 +251,7 @@ Methods: `register`, `update` (only re-buckets when the cell changes), `remove`,
 
 ### `static-world.ts`
 
-- `applyStaticWorldDefinition(world, def: StaticWorldDefinition): string` hashes the definition (`hashStaticWorld`), sets the bundle identity, turns on `actorSeparation`, and applies bounds, AABBs, and spawn points. Returns the hash.
+- `applyStaticWorldDefinition(world, def: StaticWorldDefinition): string` hashes the definition (`hashStaticWorld`), sets the bundle identity, turns on `actorSeparation`, and applies bounds, AABBs (including optional `minY`/`maxY` when present on the definition), and spawn points. Returns the hash.
 - `loadAuthoritativeStaticWorld(world, { manifest, collision, profile? })` calls `resolveStaticWorld` from `conveyor-engine-assets` and then applies the result. Returns `{ definition, hash }`. `profile` is `"minimal"` or `"example-arena"`.
 
 ### `animation.ts`
@@ -291,6 +296,8 @@ const pawn = world.createEntity(0n, { type: "pawn", shape: "capsule" }, /* owner
 world.commit(0n); // pawn now exists
 
 world.enqueue({ kind: "applyInput", entity: pawn, seq: 1, moveX: 1, moveZ: 0, yaw: 0 });
+world.enqueue({ kind: "setClip", entity: pawn, clip: "walk", speed: 2 });
+world.pawnHeight = 1.8; // finite height so elevated AABBs can clear the pawn
 const snap = world.commit(1n);
 
 snap.tick;            // 1n

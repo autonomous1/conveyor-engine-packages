@@ -43,7 +43,7 @@ Its only runtime dependency is `conveyor-engine-core`. It has **no Three.js, DOM
 | Field | Value |
 | --- | --- |
 | `name` | `conveyor-engine-client` |
-| `version` | `0.0.1` |
+| `version` | `0.1.1` |
 | `type` | `module` (ESM only) |
 | `exports["."]` | `./dist/index.js` (+ `.d.ts`) |
 | `files` | `dist`, `src` |
@@ -63,7 +63,7 @@ Build with `npm run build` before importing, because `exports` points at `dist/`
 
 | Kind | Package | Spec |
 | --- | --- | --- |
-| dependency | `conveyor-engine-core` | `file:../conveyor-engine-core` |
+| dependency | `conveyor-engine-core` | `^0.1.0` |
 | devDependency | `typescript` | `^5.8.2` |
 | devDependency | `@types/node` | `^22.10.0` |
 
@@ -143,7 +143,8 @@ With `predictOwned: true` (the default), the owned entity is drawn from the pres
 
 `renderSnapshot()` gives every entity an `animation` field:
 
-- `locomotion`: from `locomotionFromSpeed(planar speed)`, with thresholds idle ≤ 0.2 and run ≥ 4.
+- `locomotion`: the authoritative entity **`clip`** string (from the replicated view). `animation.locomotion` is set to `e.clip` (typed as `string`). Planar speed is still exposed as `animation.speed` / entity `speed`.
+- `clip` / `speed`: copied onto each render entity from the replicated view (`e.clip`, planar speed).
 - `action`: `"action-primary"` only on the frame where a **new**, higher `actionEpoch` is first seen. This uses `shouldApplyActionEpoch`, so one-shot actions are not replayed.
 
 ---
@@ -245,7 +246,7 @@ Client-local only. Per the source comment, ready events must not write authorita
 ### `animation.ts`
 
 - `LocomotionState`: `"idle" | "walk" | "run"`.
-- `locomotionFromSpeed(speed, idle = 0.2, run = 4)`.
+- `locomotionFromSpeed(speed, idle = 0.2, run = 4)` — still exported from `animation.ts` as a helper (`LocomotionState` is now `string`). `renderSnapshot` does **not** call it; it uses authoritative `e.clip` instead.
 - `shouldApplyActionEpoch(incoming, lastApplied)`: true when `incoming > lastApplied`.
 
 ---
@@ -332,7 +333,7 @@ conveyor-engine-client/
 │   ├── predict.ts       # applyMove, replay, dist
 │   ├── interp.ts        # InterpolationBuffer
 │   ├── presentation.ts  # PresentationCatalog
-│   └── animation.ts     # locomotionFromSpeed, shouldApplyActionEpoch
+│   └── animation.ts     # locomotionFromSpeed (helper), shouldApplyActionEpoch
 └── test/
     └── client.test.ts
 ```

@@ -6,13 +6,12 @@ import { test } from "node:test";
 import {
   AcquisitionError,
   AssetRuntime,
-  FilesystemAcquisitionProvider,
   HttpAcquisitionProvider,
   composeProviders,
   hashBytes,
   parseManifest,
-  resolveUnderRoot,
 } from "../src/index.ts";
+import { FilesystemAcquisitionProvider, resolveUnderRoot } from "../src/node.ts";
 
 function bytes(text: string): Uint8Array {
   return new TextEncoder().encode(text);

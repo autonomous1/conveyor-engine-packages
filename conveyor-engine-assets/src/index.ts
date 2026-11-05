@@ -3,7 +3,6 @@ export * from "./hash.js";
 export * from "./schema.js";
 export * from "./acquisition.js";
 export * from "./fixtures.js";
-export * from "./node-fs.js";
 export * from "./http-fetch.js";
 export * from "./loader.js";
 export * from "./admission.js";

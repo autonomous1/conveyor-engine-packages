@@ -6,7 +6,10 @@
   "type": "module",
   "scripts": {
     "build": "npm run build --prefix conveyor-engine-core && npm run build --prefix conveyor-engine-assets && npm run build --prefix conveyor-engine-world && npm run build --prefix conveyor-engine-replication && npm run build --prefix conveyor-engine-client && npm run build --prefix conveyor-engine-three && npm run build --prefix conveyor-engine-transport-ws && npm run build --prefix conveyor-engine-example",
-    "test": "npm test --prefix conveyor-engine-core && npm test --prefix conveyor-engine-assets && npm test --prefix conveyor-engine-world && npm test --prefix conveyor-engine-replication && npm test --prefix conveyor-engine-client && npm test --prefix conveyor-engine-three && npm test --prefix conveyor-engine-transport-ws && npm test --prefix conveyor-engine-example"
+    "test": "npm test --prefix conveyor-engine-core && npm test --prefix conveyor-engine-assets && npm test --prefix conveyor-engine-world && npm test --prefix conveyor-engine-replication && npm test --prefix conveyor-engine-client && npm test --prefix conveyor-engine-three && npm test --prefix conveyor-engine-transport-ws && npm test --prefix conveyor-engine-example && node --experimental-strip-types --test test/browser-entries.test.ts"
   },
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
 }

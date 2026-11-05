@@ -76,12 +76,12 @@ The `conveyor-graph` and `conveyor-graph-simulator` dependencies point to `../..
 
 | Kind | Package | Used for |
 | --- | --- | --- |
-| dependency | `conveyor-engine-assets` | `file:../conveyor-engine-assets`: arena manifest, collision artifact, `encodeGlb`, `resolveStaticWorld`, `resolvePresentation`, `visualAssetFromManifest`, `FixtureRegistry` |
+| dependency | `conveyor-engine-assets` | `^0.2.0`: arena manifest, collision artifact, `encodeGlb`, `resolveStaticWorld`, `resolvePresentation`, `visualAssetFromManifest`, `FixtureRegistry` |
 | dependency | `conveyor-engine-client` | `file:../conveyor-engine-client`: `EngineClient` predictor and the `IncomingSnapshot` type |
 | dependency | `conveyor-engine-core` | `file:../conveyor-engine-core`: imported for types only (`ClientId`, `EntityId`, `Tick`) |
 | dependency | `conveyor-engine-replication` | `file:../conveyor-engine-replication`: `InputGateway`, `Replicator`, `SnapshotEnvelope`, `SimulatedNetPath` |
 | dependency | `conveyor-engine-three` | `file:../conveyor-engine-three`: `ThreeProjector`, `memoryScene`, `PresentationRuntime`, `RendererCache`, `MockTemplateParser`, `MemoryBytesSource` |
-| dependency | `conveyor-engine-transport-ws` | `file:../conveyor-engine-transport-ws`: `EngineWsServer`, `EngineWsClient`, `memoryPair`, `listenHttp` |
+| dependency | `conveyor-engine-transport-ws` | `^0.2.0`: `EngineWsServer`, `EngineWsClient`, and `memoryPair` from the root; `listenHttp` from `conveyor-engine-transport-ws/node` (`ws` is a peer of that subpath) |
 | dependency | `conveyor-engine-world` | `file:../conveyor-engine-world`: `AuthoritativeWorld`, `applyStaticWorldDefinition` |
 | dependency | `conveyor-graph` | `file:../../conveyor-graph`: no direct import in `src/`; needed by the simulator and world packages |
 | dependency | `conveyor-graph-simulator` | `file:../../conveyor-graph-simulator`: `conveyor-graph-simulator/reference` (`defineScenario`, `run`, `LinkProfile`, `NetworkScheduler`, `SplitMix64`, `labelMix`) |

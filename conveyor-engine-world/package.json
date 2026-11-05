@@ -1,6 +1,6 @@
 {
   "name": "conveyor-engine-world",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Authoritative packed world store for Conveyor Engine",
   "type": "module",
   "main": "./dist/index.js",
@@ -25,7 +25,7 @@
   },
   "dependencies": {
     "conveyor-engine-core":  "^0.1.0",
-    "conveyor-engine-assets":  "^0.1.0"
+    "conveyor-engine-assets":  "^0.2.0"
   },
   "peerDependencies": {
     "conveyor-graph": ">=0.1.0"

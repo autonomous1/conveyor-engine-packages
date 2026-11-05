@@ -9,7 +9,18 @@ A JSON-over-WebSocket transport for Conveyor Engine, with an in-process loopback
 - reports processed input sequences to its `Replicator`;
 - handles framing limits, malformed frames, per-tick rate limits, and token-based reconnects.
 
-The transport works against a small `TransportSocket` interface. `memoryPair()` gives you a synchronous in-memory socket pair, and `live.ts` wraps the [`ws`](https://www.npmjs.com/package/ws) library to provide a real server and client on `127.0.0.1`.
+The transport works against a small `TransportSocket` interface. `memoryPair()` gives you a synchronous in-memory socket pair. The Node-only helpers in `live.ts` (`listenHttp`, `connectUrl`, `socketFromWs`) live on the `conveyor-engine-transport-ws/node` subpath and wrap the [`ws`](https://www.npmjs.com/package/ws) library for a real server and client on `127.0.0.1`.
+
+## Migrating to 0.2.0
+
+The root entry is browser-safe. Node-only helpers moved to `conveyor-engine-transport-ws/node`. `ws` is an optional peer dependency.
+
+| Before | After |
+| --- | --- |
+| `import { listenHttp, connectUrl, socketFromWs } from "conveyor-engine-transport-ws"` | `import { listenHttp, connectUrl, socketFromWs } from "conveyor-engine-transport-ws/node"` |
+| Node app using `listenHttp` | also `npm i ws` (now a peer) |
+
+`EngineWsServer`, `EngineWsClient`, `memoryPair`, and the codec stay on the root entry.
 
 ---
 
@@ -44,8 +55,8 @@ The transport works against a small `TransportSocket` interface. `memoryPair()` 
   - optionally checks that the server's welcome matches an expected bundle;
   - exposes callbacks for welcome, snapshot, reject, error, and close.
 - **Codec**: JSON frames, with `bigint` values encoded as `{ "$i": "<decimal>" }` (canonical-v1 style) and decoded back to `bigint`.
-- **Sockets**: `memoryPair()` for deterministic synchronous tests, and `socketFromWs()` to adapt a `ws` `WebSocket`.
-- **Live helpers**: `listenHttp(engine, port)` and `connectUrl(url, opts)`.
+- **Sockets**: `memoryPair()` for deterministic synchronous tests. `socketFromWs()` adapts a `ws` `WebSocket` and is exported from `conveyor-engine-transport-ws/node`.
+- **Live helpers** (`conveyor-engine-transport-ws/node`): `listenHttp(engine, port)` and `connectUrl(url, opts)`.
 
 ---
 
@@ -54,9 +65,11 @@ The transport works against a small `TransportSocket` interface. `memoryPair()` 
 | Field | Value |
 | --- | --- |
 | `name` | `conveyor-engine-transport-ws` |
-| `version` | `0.0.1` |
+| `version` | `0.2.0` |
 | `type` | `module` (ESM only) |
-| `exports["."]` | `./dist/index.js` (+ `.d.ts`) |
+| `sideEffects` | `false` |
+| `exports["."]` | `./dist/index.js` (+ `.d.ts`), browser-safe |
+| `exports["./node"]` | `./dist/node.js` on Node, throwing stub otherwise |
 | `files` | `dist`, `src` |
 | `license` | `ISC` |
 
@@ -74,7 +87,8 @@ Build first, because `exports` points at `dist/`.
 | --- | --- | --- |
 | dependency | `conveyor-engine-core` | `file:../conveyor-engine-core` |
 | dependency | `conveyor-engine-replication` | `file:../conveyor-engine-replication` |
-| dependency | `ws` | `^8.18.0` |
+| optional peer | `ws` | `^8.18.0` (install it in Node apps that import `/node`) |
+| devDependency | `ws` | `^8.18.0` (tests) |
 | devDependency | `conveyor-engine-world` | `file:../conveyor-engine-world` (tests only) |
 | devDependency | `@types/ws`, `@types/node`, `typescript` | `^8.5.14`, `^22.10.0`, `^5.8.2` |
 
@@ -172,7 +186,7 @@ Every message has `v: TRANSPORT_PROTOCOL`, which equals core's `PROTOCOL_VERSION
 
 ## Module reference
 
-`src/index.ts` re-exports `codec`, `protocol`, `socket`, `server`, `client`, and `live`.
+`src/index.ts` re-exports `codec`, `protocol`, `socket`, `server`, and `client`. `src/node.ts` re-exports the Node-only helpers from `live.ts`.
 
 ### `codec.ts`
 
@@ -250,7 +264,7 @@ new EngineWsClient(socket: TransportSocket, opts?: {
 
 ### `live.ts`
 
-- `socketFromWs(ws: WebSocket): TransportSocket` decodes `Buffer` messages as UTF-8. It only sends when the socket is `OPEN`.
+- `socketFromWs(ws: WebSocket): TransportSocket` decodes `Buffer`, `ArrayBuffer`, and `Buffer[]` messages as UTF-8 with `TextDecoder`. It only sends when the socket is `OPEN`.
 - `listenHttp(engine, port = 0): Promise<LiveServer>` starts an `http` server plus a `WebSocketServer` on **127.0.0.1** and attaches every connection to `engine`.
   - `LiveServer` is `{ port, url: "ws://127.0.0.1:<port>", close(): Promise<void> }`.
 - `connectUrl(url, opts?): Promise<EngineWsClient>` opens a `ws` connection, sends `hello()` once it opens, and resolves with the client.
@@ -292,7 +306,8 @@ for (const [id, env] of server.replicator.publish(world, snap)) server.sendSnaps
 ### Live WebSocket on localhost
 
 ```ts
-import { EngineWsServer, listenHttp, connectUrl } from "conveyor-engine-transport-ws";
+import { EngineWsServer } from "conveyor-engine-transport-ws";
+import { listenHttp, connectUrl } from "conveyor-engine-transport-ws/node";
 
 const engine = new EngineWsServer({ onHello: () => 10 });
 const live = await listenHttp(engine, 0);        // ephemeral port
@@ -352,13 +367,15 @@ conveyor-engine-world (devDependency: tests)
 conveyor-engine-transport-ws/
 ├── package.json, package-lock.json, tsconfig.json, README.md
 ├── src/
-│   ├── index.ts      # barrel
+│   ├── index.ts      # browser-safe barrel (no live.ts)
+│   ├── node.ts       # ./node subpath → socketFromWs, listenHttp, connectUrl
+│   ├── node-unavailable.ts
 │   ├── codec.ts      # encodeFrame / decodeFrame
 │   ├── protocol.ts   # wire message types, parseWire
 │   ├── socket.ts     # TransportSocket, memoryPair
 │   ├── server.ts     # EngineWsServer
 │   ├── client.ts     # EngineWsClient
-│   ├── live.ts       # ws adapters: socketFromWs, listenHttp, connectUrl
+│   ├── live.ts       # Node-only ws adapters
 │   └── ws-shim.d.ts  # minimal ambient "ws" types
 └── test/
     ├── transport.test.ts

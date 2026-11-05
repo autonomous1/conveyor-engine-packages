@@ -4,7 +4,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { AuthoritativeWorld } from "conveyor-engine-world";
 import { Replicator } from "conveyor-engine-replication";
 import { labelMix, NetworkScheduler, SplitMix64 } from "conveyor-graph-simulator/reference";
-import { listenHttp, EngineWsServer } from "conveyor-engine-transport-ws";
+import { EngineWsServer } from "conveyor-engine-transport-ws";
+import { listenHttp } from "conveyor-engine-transport-ws/node";
 import { ARENA_COLLISION, ARENA_BUNDLE_ID, arenaStaticWorld } from "./arena-assets.js";
 
 function unit01(rng: SplitMix64): number {

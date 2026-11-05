@@ -7,7 +7,7 @@ declare module "ws" {
     readyState: number;
     send(data: string): void;
     close(): void;
-    on(event: "message", cb: (data: string | Buffer) => void): this;
+    on(event: "message", cb: (data: string | Buffer | ArrayBuffer | Array<Buffer | ArrayBuffer>) => void): this;
     on(event: "close", cb: () => void): this;
     once(event: "open", cb: () => void): this;
     once(event: "error", cb: (err: Error) => void): this;

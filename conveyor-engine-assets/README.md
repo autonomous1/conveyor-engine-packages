@@ -11,6 +11,14 @@ The package keeps two planes apart:
 
 It has no renderer dependency. GLB files are inspected structurally without `three`, and collision artifacts are flattened into the AABB shape that `conveyor-engine-world` uses.
 
+## Migrating to 0.2.0
+
+The root entry no longer re-exports the filesystem provider. Import it from `conveyor-engine-assets/node`. `http-fetch` stays on the root (it uses `fetch`) and on `./http`.
+
+| Before | After |
+| --- | --- |
+| `import { FilesystemAcquisitionProvider, resolveUnderRoot } from "conveyor-engine-assets"` | `import { FilesystemAcquisitionProvider, resolveUnderRoot } from "conveyor-engine-assets/node"` |
+
 ---
 
 ## Contents
@@ -51,10 +59,11 @@ It has no renderer dependency. GLB files are inspected structurally without `thr
 | Field | Value |
 | --- | --- |
 | `name` | `conveyor-engine-assets` |
-| `version` | `0.0.1` |
+| `version` | `0.2.0` |
 | `type` | `module` (ESM only) |
-| `exports["."]` | `./dist/index.js` (+ `.d.ts`) |
-| `exports["./node"]` | `./dist/node.js` (+ `.d.ts`): filesystem provider |
+| `sideEffects` | `false` |
+| `exports["."]` | `./dist/index.js` (+ `.d.ts`), browser-safe |
+| `exports["./node"]` | filesystem provider on Node; throwing stub otherwise |
 | `exports["./http"]` | `./dist/http.js` (+ `.d.ts`): HTTP provider |
 | `files` | `dist`, `src` |
 | `license` | `ISC` |
@@ -65,7 +74,7 @@ Inside the monorepo, depend on it by path:
 "dependencies": { "conveyor-engine-assets": "file:../conveyor-engine-assets" }
 ```
 
-> **Note on entry points.** The root barrel (`src/index.ts`) re-exports `node-fs.ts` and `http-fetch.ts` as well as the rest of the package. `node-fs.ts` imports `node:fs/promises` and `node:path` at module load, so importing the root entry pulls in Node built-ins. The `./node` and `./http` subpaths are narrower entry points. They do **not** make the root entry browser-safe. A browser bundle that imports the root needs those Node modules stubbed or tree-shaken.
+> **Note on entry points.** The root barrel re-exports `http-fetch.ts` (global `fetch`) and the rest of the browser-safe package. It does not re-export `node-fs.ts`. Import `FilesystemAcquisitionProvider` and `resolveUnderRoot` from `conveyor-engine-assets/node`. That subpath is Node-only; a browser import loads a stub that throws.
 
 ---
 
@@ -194,7 +203,7 @@ Shared type vocabulary:
 - A `FixtureScript` can set `delayMs` (abortable), `fail`, `cancel`, or `completeAfterAbort`. With `completeAfterAbort` the fixture finishes its delay and then rejects with `stale` if the caller has aborted.
 - `FixtureRegistry` is a fluent wrapper around the provider: `put`, `success`, and `fail`.
 
-### `node-fs.ts` (also `./node`)
+### `node-fs.ts` (`conveyor-engine-assets/node` only)
 
 - `FilesystemAcquisitionProvider({ root, maxBytes = 32 MiB })` reads files relative to `root`. It accepts scheme-less URIs and the file scheme, and rejects other schemes.
 - It sets the content type for `.json`, `.glb`, and `.gltf`. A missing file maps to `not-found`.
@@ -410,8 +419,9 @@ if (resolved.kind === "primitive") console.warn("fallback:", resolved.reason);
 conveyor-engine-assets/
 ├── package.json, tsconfig.json, README.md
 ├── src/
-│   ├── index.ts              # barrel (re-exports everything below, including node-fs and http-fetch)
+│   ├── index.ts              # browser-safe barrel (no node-fs)
 │   ├── node.ts               # ./node subpath → FilesystemAcquisitionProvider, resolveUnderRoot
+│   ├── node-unavailable.ts
 │   ├── http.ts               # ./http subpath → HttpAcquisitionProvider
 │   ├── types.ts              # kinds, authorities, records, manifest, metrics, events
 │   ├── hash.ts               # portable SHA-256, canonical JSON

@@ -30,12 +30,12 @@
   },
   "license": "ISC",
   "dependencies": {
-    "conveyor-engine-assets":  "^0.1.0",
+    "conveyor-engine-assets":  "^0.2.0",
     "conveyor-engine-client":  "^0.1.0",
     "conveyor-engine-core":  "^0.1.0",
     "conveyor-engine-replication":  "^0.1.0",
     "conveyor-engine-three":  "^0.1.0",
-    "conveyor-engine-transport-ws":  "^0.1.0",
+    "conveyor-engine-transport-ws":  "^0.2.0",
     "conveyor-engine-world":  "^0.1.0",
     "conveyor-graph":  "^0.1.0"
   },

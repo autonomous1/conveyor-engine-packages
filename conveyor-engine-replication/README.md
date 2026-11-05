@@ -33,7 +33,8 @@ The package does not use browser APIs.
 - **Input validation**: `validateInput` rejects oversized payloads, bad client ids, claimed authority (`position` / `velocity`), bad, duplicate, old, or too-far-future sequences, and non-finite values. It clamps move axes to `[-maxAbsMove, maxAbsMove]`.
 - **`InputGateway`**: session table, per-tick rate limit, ownership enforcement, input timeouts (with a drain list for `clearInput`), and metrics.
 - **`ClientMirror`**: headless reconstruction of the world from envelopes. It drops stale envelopes and versions, ignores updates for entities it hasn't seen spawn, and ignores despawns that predate the spawn.
-- **Simulator bindings**: `SimulatedReplication` (publish phase) and `SimulatedNetPath` (admit → sim → network send/deliver through `NetworkScheduler`).
+- **`DirectNetPath`**: production in-process `NetPath` — the sink runs in the same turn as `send`, with no latency, loss, or scheduler.
+- **Simulator bindings** (subpath `conveyor-engine-replication/simulator` only): `SimulatedReplication` (publish phase) and `SimulatedNetPath` (admit → sim → network send/deliver through `NetworkScheduler`). Not re-exported from the main barrel.
 
 ---
 
@@ -42,7 +43,7 @@ The package does not use browser APIs.
 | Field | Value |
 | --- | --- |
 | `name` | `conveyor-engine-replication` |
-| `version` | `0.0.1` |
+| `version` | `0.1.1` |
 | `type` | `module` (ESM only) |
 | `exports["."]` | `./dist/index.js` (+ `.d.ts`) |
 | `exports["./simulator"]` | `./dist/simulator.js` (+ `.d.ts`) |
@@ -61,19 +62,16 @@ Build before importing, because `exports` points at `dist/`.
 
 | Kind | Package | Spec |
 | --- | --- | --- |
-| dependency | `conveyor-engine-core` | `file:../conveyor-engine-core` |
-| dependency | `conveyor-engine-world` | `file:../conveyor-engine-world` |
+| dependency | `conveyor-engine-core` | `^0.1.0` |
+| dependency | `conveyor-engine-world` | `^0.1.0` |
 | peerDependency | `conveyor-graph` | `>=0.1.0` |
-| peerDependency | `conveyor-graph-simulator` | `>=0.0.1` |
+| peerDependency | `conveyor-graph-simulator` | `>=0.0.1` (optional via `peerDependenciesMeta`) |
 | devDependency | `conveyor-graph`, `conveyor-graph-simulator` | `file:../../conveyor-graph`, `file:../../conveyor-graph-simulator` |
 | devDependency | `typescript`, `@types/node` | `^5.8.2`, `^22.10.0` |
 
-At runtime the package uses:
+The **main** entry (`src/index.ts`) does not import the graph packages. Only `src/simulator.ts` / `src/simulated-net-path.ts` (the `./simulator` export) pull them in. `conveyor-graph-simulator` is marked optional so hosts that only need `DirectNetPath` / `Replicator` / `InputGateway` need not install it.
 
-- from `conveyor-engine-core`: `PROTOCOL_VERSION`, `compareId`, `ErrorCategory`, and the validators;
-- from `conveyor-engine-world`: `SimulatedWorld`, used by `SimulatedNetPath`.
-
-Its imports from `conveyor-graph` and `conveyor-graph-simulator/reference` are type-only in `src/`, but the network tests import `defineScenario` and `run` from the simulator at runtime.
+At runtime the main entry uses `conveyor-engine-core` (validators, `ErrorCategory`, `PROTOCOL_VERSION`) and `conveyor-engine-world` types/APIs for `enqueueMovement` / publish. `SimulatedNetPath` uses `SimulatedWorld` from world and the graph simulator at runtime (see `n1-network.test.ts`, `import-graph.test.ts`).
 
 ---
 
@@ -94,6 +92,8 @@ Build `conveyor-graph`, `conveyor-graph-simulator`, `conveyor-engine-core`, `con
 | `e4-replication.test.ts` | Distinct per-client relevance, spawn then despawn when relevance changes, mirror reconstruction |
 | `e5-ingress.test.ts` | Owned-only movement, `not-owner`, duplicates, future/NaN/Infinity/oversized/rate-limit rejection, disconnect |
 | `n1-network.test.ts` | Two-client `SimulatedNetPath` scenarios over `conveyor-graph-simulator` (lossless / lossy / partition), with deterministic hashes across runs |
+| `direct-net-path.test.ts` | `DirectNetPath` sink sequencing, close, reject-after-close |
+| `import-graph.test.ts` | Main barrel / `dist` graph does not resolve `conveyor-graph-simulator`; `./simulator` may |
 
 ---
 
@@ -167,7 +167,15 @@ A session that is connected, has sent at least one input, and has been silent fo
 
 ## Module reference
 
-`src/index.ts` re-exports `types`, `input`, `ingress`, `mirror`, `replicator`, `simulator`, and `net-path`. `conveyor-engine-replication/simulator` exposes `SimulatedReplication` on its own.
+`src/index.ts` re-exports `types`, `input`, `ingress`, `mirror`, `replicator`, and `net-path` (`DirectNetPath` and related types). It does **not** re-export the simulator.
+
+Import simulator bindings from the subpath:
+
+```ts
+import { SimulatedReplication, SimulatedNetPath } from "conveyor-engine-replication/simulator";
+```
+
+(`simulator.ts` re-exports `SimulatedNetPath` / `NetBatch` / `NetDeliver` from `simulated-net-path.ts`.)
 
 ### `types.ts`
 
@@ -175,7 +183,7 @@ A session that is connected, has sent at least one input, and has been silent fo
 - `ClientReplicationState`: `clientId`, `connected`, `lastSentSeq`, `lastAckSeq`, `lastProcessedInput`, `known: Map<EntityId, version>`, `interestRadius`, `ownedEntity?`, `focusX`/`focusZ`, `pendingDespawn`, `needsFull`, `lastFullTick`, `outboundBytes`, `queueDepth`, `resyncCount`.
 - `SpawnRecord`, `UpdateRecord`, `DespawnRecord`, `SnapshotEnvelope` (above).
 - `ReplicationMetrics`: client, snapshot, full, delta, spawn, update, and despawn counts, plus `coalesced`, `deferred`, and `resyncCount`.
-- `ValidatedInput`: `{ clientId, seq, moveX, moveZ, yaw, buttons, entity? }`.
+- `ValidatedInput`: `{ clientId, seq, moveX, moveZ, yaw, clip, buttons, entity? }`. Today `validateInput` always sets `clip: ""`.
 
 ### `replicator.ts`: `Replicator`
 
@@ -210,7 +218,7 @@ new InputGateway(opts?: { policy?: Partial<InputPolicy>; timeoutTicks?: bigint /
 ```
 
 - Methods: `connect(clientId, ownedEntity?)`, `disconnect`, `get`, `setOwned`, `beginTick`, `drainTimeouts`, `admit(raw, tick)`, `enqueueMovement(world, input) → boolean`.
-- `enqueueMovement` enqueues `applyInput` for the session's owned entity.
+- `enqueueMovement` requires `input.clip: string` in its TypeScript signature but currently enqueues only `applyInput` (move/yaw). It does **not** yet enqueue the world's `setClip` command (see packages ISS-17).
 - Exported types: `SessionRecord`, `IngressMetrics` (`accepted`, `rejected`, `duplicates`, `unauthorized`, `timedOut`, `disconnected`).
 
 ### `mirror.ts`: `ClientMirror`
@@ -223,17 +231,32 @@ Fields: `entities: Map<EntityId, MirrorEntity>`, `lastSeq`, `applied`, `ignored`
 
 `buildPublish(graph, ctx)` defines a `"frame"` vertex that calls `replicator.publish` and stores the result in `lastEnvelopes`. Per the source header, the publish phase must not propose StateStore changes.
 
-### `net-path.ts`: `SimulatedNetPath`, `NetBatch`, `NetDeliver`
+### `net-path.ts`: `NetPath`, `DirectNetPath`, `NetSendOptions`
 
-A combined admit, sim, and network harness: `new SimulatedNetPath({ clients = [1, 2], radius = 32 })`.
+Production transport abstraction (no scheduler, link profile, or RNG):
+
+```ts
+export interface NetSendOptions { to?: string; kind?: string }
+export interface NetSendReceipt { ok: boolean; seq?: number }
+export interface NetPath<Frame = unknown> {
+  send(frame: Frame, options?: NetSendOptions): Promise<NetSendReceipt>;
+  close?(reason?: string): void;
+}
+export type NetFrameSink<Frame> = (frame: Frame, options: NetSendOptions) => void;
+
+new DirectNetPath(sink)  // sink runs synchronously inside send; then resolves { ok: true, seq }
+```
+
+After `close()`, further `send` calls resolve `{ ok: false }` without invoking the sink.
+
+### `simulated-net-path.ts` (via `./simulator`): `SimulatedNetPath`, `NetBatch`, `NetDeliver`
+
+A combined admit, sim, and network harness for the graph simulator: `new SimulatedNetPath({ clients = [1, 2], radius = 32 })`.
 
 - `setupNetwork(net, profile?)` adds a `world` peer and `client:<id>` peers on channel `snap`, and connects gateway, replicator, and mirror sessions.
 - `partition(net, clientId, fromTick, toTick)`.
 - `buildAdmit` validates `NetBatch.inputs` through the gateway.
-- `buildSim` handles three things:
-  - **creates**: owned pawns are marked always-relevant (`flags 1, category 1`); unowned ones are placed at `x = 400`.
-  - **timeouts**: timed-out entities have their input cleared.
-  - **inputs**: movement is applied, the world is committed, the canonical world is proposed on `["world"]`, and envelopes are sent through `ctx.network.send`. The envelope body is kept in `outbox` under its payload hash.
+- `buildSim` handles creates, timeouts, and inputs; commits the world; proposes canonical state on `["world"]`; sends envelopes through `ctx.network.send` (bodies kept in `outbox` by payload hash).
 - On `net-deliver` events, the envelope is applied to the target client's `ClientMirror`.
 - Counters: `deliveries`, `duplicateIgnored`, `sends`, `rejects`.
 
@@ -286,6 +309,20 @@ mirror.apply(env);
 mirror.ids(); // entity ids the client currently knows about
 ```
 
+### Production wire via `DirectNetPath`
+
+```ts
+import { DirectNetPath } from "conveyor-engine-replication";
+
+const path = new DirectNetPath((frame, options) => {
+  // encode / socket.send / in-process deliver
+  void options;
+  void frame;
+});
+await path.send({ type: "snapshot", envelope: env }, { to: "client:1", kind: "snap" });
+path.close();
+```
+
 ---
 
 ## Configuration
@@ -315,7 +352,7 @@ conveyor-graph / conveyor-graph-simulator (peers; simulator bindings)
 
 - **Consumes** `WorldSnapshot`, `ImmutableEntityView`, and `AuthoritativeWorld` from `conveyor-engine-world`.
 - **Is a dependency of** `conveyor-engine-transport-ws` and `conveyor-engine-example`.
-- **Feeds the client**: the envelope's `spawns`, `updates`, and `despawns` carry the fields `conveyor-engine-client` reads as `ViewWire` (`id`, `owner`, `position`, `rotation`, `scale`, `velocity`, `radius`, `replicationVersion`, `inputSeq`, `render`, `actionEpoch` / `action`).
+- **Feeds the client**: the envelope's `spawns`, `updates`, and `despawns` carry the fields `conveyor-engine-client` reads as `ViewWire` (`id`, `owner`, `position`, `rotation`, `scale`, `velocity`, `clip`, `speed`, `radius`, `replicationVersion`, `inputSeq`, `render`, `actionEpoch` / `action`).
 
 ---
 
@@ -331,13 +368,16 @@ conveyor-engine-replication/
 │   ├── input.ts        # validateInput, InputPolicy
 │   ├── ingress.ts      # InputGateway
 │   ├── mirror.ts       # ClientMirror
-│   ├── simulator.ts    # SimulatedReplication (./simulator subpath)
-│   └── net-path.ts     # SimulatedNetPath
+│   ├── net-path.ts              # DirectNetPath, NetPath, NetSendOptions (main export)
+│   ├── simulated-net-path.ts    # SimulatedNetPath (./simulator only)
+│   └── simulator.ts             # SimulatedReplication + re-exports SimulatedNetPath
 └── test/
     ├── replication.test.ts
     ├── e4-replication.test.ts
     ├── e5-ingress.test.ts
-    └── n1-network.test.ts
+    ├── n1-network.test.ts
+    ├── direct-net-path.test.ts
+    └── import-graph.test.ts
 ```
 
 ---

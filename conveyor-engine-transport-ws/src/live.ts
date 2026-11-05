@@ -4,11 +4,33 @@ import { EngineWsClient, type EngineWsClientOptions } from "./client.js";
 import type { EngineWsServer } from "./server.js";
 import type { TransportSocket } from "./socket.js";
 
+const utf8 = new TextDecoder();
+
+type WsMessageData = string | Buffer | ArrayBuffer | Array<Buffer | ArrayBuffer>;
+
+function wsMessageText(data: WsMessageData): string {
+  if (typeof data === "string") return data;
+  if (data instanceof ArrayBuffer) return utf8.decode(new Uint8Array(data));
+  if (Array.isArray(data)) {
+    const parts = data.map((part) => (part instanceof ArrayBuffer ? new Uint8Array(part) : part));
+    let total = 0;
+    for (const part of parts) total += part.byteLength;
+    const merged = new Uint8Array(total);
+    let offset = 0;
+    for (const part of parts) {
+      merged.set(part, offset);
+      offset += part.byteLength;
+    }
+    return utf8.decode(merged);
+  }
+  return utf8.decode(data as Uint8Array);
+}
+
 export function socketFromWs(ws: WebSocket): TransportSocket {
   const messages: Array<(text: string) => void> = [];
   const closes: Array<() => void> = [];
-  ws.on("message", (data: string | Buffer) => {
-    const text = typeof data === "string" ? data : Buffer.from(data).toString("utf8");
+  ws.on("message", (data: WsMessageData) => {
+    const text = wsMessageText(data);
     for (const h of messages) h(text);
   });
   ws.on("close", () => {
